@@ -1,0 +1,5 @@
+module r6-stats
+
+go 1.25
+
+require github.com/klauspost/compress v1.20.4

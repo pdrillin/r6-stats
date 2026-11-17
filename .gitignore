@@ -1,0 +1,17 @@
+# Fichiers de replay : volumineux (plusieurs centaines de Mo) et non redistribuables.
+Replays/
+*.rec
+
+# Binaires compilés
+/r6rec
+*.exe
+/dist/
+
+# Sorties de debug (r6rec dump)
+*.bin
+
+# Éditeurs et OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
