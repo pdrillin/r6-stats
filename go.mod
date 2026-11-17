@@ -1,4 +1,4 @@
-module r6-stats
+module github.com/pdrillin/r6-stats
 
 go 1.25
 
