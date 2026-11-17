@@ -12,9 +12,9 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"r6-stats/match"
-	"r6-stats/rec"
-	"r6-stats/stats"
+	"github.com/pdrillin/r6-stats/match"
+	"github.com/pdrillin/r6-stats/rec"
+	"github.com/pdrillin/r6-stats/stats"
 )
 
 const usage = `usage:

@@ -4,8 +4,8 @@ package stats
 import (
 	"sort"
 
-	"r6-stats/match"
-	"r6-stats/rec"
+	"github.com/pdrillin/r6-stats/match"
+	"github.com/pdrillin/r6-stats/rec"
 )
 
 // Options tunes the definitions that are a matter of convention.

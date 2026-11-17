@@ -30,6 +30,12 @@ go run ./cmd/r6rec round <fichier.rec> # événements d'un round en JSON
 
 Sous Windows, les replays sont dans le dossier `MatchReplay` du jeu, avec un sous-dossier par match.
 
+Pour installer l'outil sans cloner le dépôt :
+
+```sh
+go install github.com/pdrillin/r6-stats/cmd/r6rec@latest
+```
+
 Pour produire l'exécutable Windows depuis n'importe quel système :
 
 ```sh
