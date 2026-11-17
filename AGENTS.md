@@ -1,104 +1,104 @@
 # AGENTS.md
 
-Guide for coding agents working on this repository. Read it before changing anything.
+Guide pour les agents de code qui travaillent sur ce dépôt. À lire avant toute modification.
 
-## Project
+## Le projet
 
-Advanced match statistics for Rainbow Six Siege, computed from the game's replay files (`.rec`). The goal is to go beyond public trackers (K/D, win rate) by using the order and timing of events in each round.
+Statistiques de match avancées pour Rainbow Six Siege, calculées à partir des fichiers de replay du jeu (`.rec`). L'objectif est d'aller plus loin que les trackers publics (K/D, winrate) en exploitant l'ordre et le moment des événements de chaque round.
 
-Planned product, not built yet:
+Produit prévu, pas encore construit :
 
-- **Windows app** (players are on Windows): watches the game's `MatchReplay` folder and uploads new matches before the game purges them. Planned with Wails (Go backend + web UI in WebView2).
-- **Server**: receives raw `.rec` files, parses them, stores stats (Postgres) and keeps the raw files (object storage) so they can be re-parsed when the parser improves.
-- **Web UI**: React + TypeScript + Vite SPA, shared between the website and the Windows app.
+- **App Windows** (les joueurs sont sous Windows) : surveille le dossier `MatchReplay` du jeu et envoie les nouveaux matchs avant que le jeu ne les supprime. Prévue avec Wails (backend Go + interface web dans WebView2).
+- **Serveur** : reçoit les `.rec` bruts, les parse, stocke les stats (Postgres) et conserve les fichiers bruts (stockage objet) pour pouvoir les re-parser quand le parser s'améliore.
+- **Interface web** : SPA React + TypeScript + Vite, partagée entre le site et l'app Windows.
 
-Parsing happens server-side so a season change only needs a server update. What exists today is the Go parser, match assembly, stats and a CLI.
+Le parsing se fait côté serveur : un changement de saison ne demande qu'une mise à jour du serveur. Aujourd'hui existent le parser Go, le regroupement en matchs, les stats et un outil en ligne de commande.
 
-## Working with the user
+## Travailler avec l'utilisateur
 
-- The user writes in French. Answer in French. Code, identifiers and code comments stay in English.
-- Development happens on Linux; the target users are on Windows. Cross-compile with `GOOS=windows GOARCH=amd64 go build ./cmd/r6rec`.
-- Older seasons are explicitly out of scope for now: target the current season (Y11S2) and the following ones.
+- L'utilisateur écrit en français : répondre en français. Le code, les identifiants et les commentaires de code restent en anglais. La documentation (README, ce fichier) est en français.
+- Le développement se fait sous Linux, les utilisateurs cibles sont sous Windows. Compilation croisée : `GOOS=windows GOARCH=amd64 go build ./cmd/r6rec`.
+- Les anciennes saisons sont explicitement hors périmètre pour l'instant : viser la saison en cours (Y11S2) et les suivantes.
 
-## Commands
+## Commandes
 
 ```sh
 go vet ./...
-go test ./...                        # unit tests + corpus tests if Replays/ exists
-go test -short ./...                 # skips tests that decompress the whole corpus
-go run ./cmd/r6rec ls Replays        # one line per round
-go run ./cmd/r6rec matches Replays   # assembled matches, round by round
-go run ./cmd/r6rec stats Replays     # stats report (-json for JSON)
-go run ./cmd/r6rec round <file.rec>  # decoded events of one round
-go run ./cmd/r6rec header -raw <file.rec>
-go run ./cmd/r6rec dump <file.rec> <out.bin>  # decompressed body, for reverse engineering
+go test ./...                        # tests unitaires + tests sur le corpus si Replays/ existe
+go test -short ./...                 # saute les tests qui décompressent tout le corpus
+go run ./cmd/r6rec ls Replays        # une ligne par round
+go run ./cmd/r6rec matches Replays   # matchs reconstitués, round par round
+go run ./cmd/r6rec stats Replays     # rapport de stats (-json pour du JSON)
+go run ./cmd/r6rec round <fichier.rec>  # événements décodés d'un round
+go run ./cmd/r6rec header -raw <fichier.rec>
+go run ./cmd/r6rec dump <fichier.rec> <sortie.bin>  # corps décompressé, pour la rétro-ingénierie
 ```
 
-CI (`.github/workflows/test.yml`) runs gofmt, vet, tests and the Windows build. Keep `gofmt -l .` empty.
+La CI (`.github/workflows/test.yml`) lance gofmt, vet, les tests et la compilation Windows. `gofmt -l .` doit rester vide.
 
-## Replay corpus
+## Corpus de replays
 
-`Replays/` is git-ignored: ~580 MB of pro esports replays (EWC 2026, 15 Aug 2026, game version `Y11S2_Alpha04`), not redistributable. On a new machine, copy it over by hand to the repo root. Without it, corpus tests skip and only unit tests run.
+`Replays/` est ignoré par git : environ 580 Mo de replays esport pro (EWC 2026, 15 août 2026, version du jeu `Y11S2_Alpha04`), non redistribuables. Sur une nouvelle machine, le copier à la main à la racine du dépôt. Sans lui, les tests sur le corpus sont ignorés et seuls les tests unitaires tournent.
 
-Layout: `Replays/<series>/<n> - <map>/Match-<date>-<id>/Match-...-RNN.rec`, one file per round. Two series:
+Organisation : `Replays/<série>/<n> - <map>/Match-<date>-<id>/Match-...-RNN.rec`, un fichier par round. Deux séries :
 
-- DarkZero vs Geekay: Nighthaven Labs 3-7, Kafe 8-7, Chalet 7-0.
-- FURIA vs FaZe (grand final): Bank 3-7, Border 5-7, Fortress 8-6, Lair 5-7. These four scores match public results.
+- DarkZero vs Geekay : Nighthaven Labs 3-7, Kafe 8-7, Chalet 7-0.
+- FURIA vs FaZe (grande finale) : Bank 3-7, Border 5-7, Fortress 8-6, Lair 5-7. Ces quatre scores correspondent aux résultats publics.
 
-`match/match_test.go` pins those scores; `rec/rec_test.go` checks every round winner against the next round's starting score (72/72).
+`match/match_test.go` fige ces scores ; `rec/rec_test.go` compare le vainqueur de chaque round au score de départ du round suivant (72/72).
 
-## Code layout
+## Organisation du code
 
-| Package | Role |
+| Package | Rôle |
 |---|---|
-| `rec/` | File format: header (`rec.go`), map ids (`maps.go`), body events and round winner (`round.go`) |
-| `match/` | Groups round files into matches, handles rehosts, `Roster` fills a missing team |
-| `stats/` | Opening duels, trades, clutches, man-advantage conversion |
-| `cmd/r6rec/` | CLI |
+| `rec/` | Format de fichier : en-tête (`rec.go`), identifiants de maps (`maps.go`), événements du corps et vainqueur du round (`round.go`) |
+| `match/` | Regroupe les rounds en matchs, gère les rehosts ; `Roster` complète une équipe manquante |
+| `stats/` | Duels d'ouverture, trades, clutches, conversion des avantages numériques |
+| `cmd/r6rec/` | Outil en ligne de commande |
 
-## File format (reverse engineered, Y11S2)
+## Format de fichier (rétro-ingénierie, Y11S2)
 
-All integers little-endian unless noted.
+Entiers en little-endian sauf mention contraire.
 
-**Container**
-- Magic `dissect\0`, then a preamble (u32, string, u32, u32), then u64 property count and that many (string key, string value) pairs. Strings are u64 length + bytes.
-- Then an undecoded index region, then chunks: tag `200VRPMC`, u32 decompressed size, u32 compressed size, one zstd frame. Concatenated chunks form the body (40–90 MB per round).
+**Conteneur**
+- Signature `dissect\0`, puis un préambule (u32, chaîne, u32, u32), puis un u64 donnant le nombre de propriétés et autant de paires (clé, valeur) en chaînes. Une chaîne = longueur u64 + octets.
+- Ensuite une zone d'index non décodée, puis les blocs : balise `200VRPMC`, u32 taille décompressée, u32 taille compressée, une trame zstd. Les blocs concaténés forment le corps (40 à 90 Mo par round).
 
-**Header properties** (keys repeat; order matters)
-- Player blocks start at `playerid`: `profileid`, `playername`, `team` (index into teams), `heroname`, `alliance`, `roleimage`, `rolename` (operator display name), `roleportrait`.
-- `alliance`: 3 = attack, 4 = defense (verified against operator picks on both halves).
-- Match: `version`, `code`, `datetime`, `id` (match id, changes on rehost), `matchtype` (3 in all corpus files; ranked value unknown), `worldid` (map id, see `rec/maps.go`), `gamemodeid`, `roundnumber` (0-based), `teamname0/1`, `startingteamscore0/1` (score *before* the round), `maxnbplayersperteam`, many `gmsetting`.
-- The header does not contain the round result, nor the bomb site.
-- Tournament replays: `profileid` is zeroed, `isspectator` = 1. Ranked replays will differ; none have been examined yet.
+**Propriétés de l'en-tête** (les clés se répètent, l'ordre compte)
+- Les blocs joueur commencent à `playerid` : `profileid`, `playername`, `team` (indice d'équipe), `heroname`, `alliance`, `roleimage`, `rolename` (nom affiché de l'opérateur), `roleportrait`.
+- `alliance` : 3 = attaque, 4 = défense (vérifié avec les opérateurs choisis sur les deux mi-temps).
+- Match : `version`, `code`, `datetime`, `id` (identifiant de match, change à chaque rehost), `matchtype` (3 dans tout le corpus ; valeur en ranked inconnue), `worldid` (identifiant de map, voir `rec/maps.go`), `gamemodeid`, `roundnumber` (à partir de 0), `teamname0/1`, `startingteamscore0/1` (score *avant* le round), `maxnbplayersperteam`, de nombreux `gmsetting`.
+- L'en-tête ne contient ni le résultat du round, ni le site de bombe.
+- Replays de tournoi : `profileid` à zéro, `isspectator` = 1. Les replays de ranked seront différents ; aucun n'a encore été examiné.
 
-**Body**
-- A stream of object updates: `0x23` + 8-byte object id, then properties. Each property is a 4-byte key (hash, read big-endian in code), a 1-byte length, the value. Properties after the first are prefixed `0x22`, or `0x26` when followed by a 4-byte array index before the length.
-- Round state object (found via its first key `0x1f07efc9`): `0x1f07efc9` timer seconds, `0x1837466c` timer ms, `0x35f88fcf` alert flag (plant, or last 10 s), `0xbb094fd3` round state (3 = over).
-- Kill feed entry (first key `0x5934e58b`): `0xd9133cba` killer, `0xac190f70` victim, `0xc198de70` / `0x782e7b50` killer/victim team + 1, `0xc35ba44e` headshot. Entries are re-sent when the feed redraws: dedupe by object id. Entries without a victim are phase announcements.
-- Room names (`"2F Library Stairs"`, key `0xaf9899ca` indexed) appear in the body; not yet linked to players.
-- Events get their time from the last timer update preceding them in the body (the body is chronological).
+**Corps**
+- Un flux de mises à jour d'objets : `0x23` + identifiant d'objet sur 8 octets, puis des propriétés. Chaque propriété = clé de 4 octets (un hash, lu en big-endian dans le code), longueur sur 1 octet, valeur. Les propriétés après la première sont préfixées par `0x22`, ou par `0x26` quand un indice de tableau sur 4 octets précède la longueur.
+- Objet d'état du round (repéré par sa première clé `0x1f07efc9`) : `0x1f07efc9` chrono en secondes, `0x1837466c` chrono en ms, `0x35f88fcf` drapeau d'alerte (pose, ou 10 dernières secondes), `0xbb094fd3` état du round (3 = terminé).
+- Entrée du kill feed (première clé `0x5934e58b`) : `0xd9133cba` tueur, `0xac190f70` victime, `0xc198de70` / `0x782e7b50` équipe du tueur / de la victime + 1, `0xc35ba44e` headshot. Les entrées sont renvoyées à chaque redessin du feed : dédoublonner par identifiant d'objet. Les entrées sans victime sont des annonces de phase.
+- Des noms de pièces (`"2F Library Stairs"`, clé `0xaf9899ca` indexée) apparaissent dans le corps ; pas encore rattachés aux joueurs.
+- Un événement prend l'heure de la dernière mise à jour du chrono qui le précède dans le corps (le corps est chronologique).
 
-**Known pitfalls**
-- The round winner is inferred from rules (wipe, plant + timeout, plant + no timeout = defuse, timeout), not read from the file.
-- A plant is detected by the timer jumping up (defuser countdown) or the alert flag with more than 11.5 s left.
-- When a plant in progress extends the round past 0:00, the timer freezes under 1 s, so late events read as 2:59.
-- A recording made right after a rehost starts in the "over" state, then leaves it.
-- Rehosts: same map + teams; a repeated round number replaces the earlier (incomplete) recording. Some post-rehost files list only one team in the header; `match.Roster` borrows the other team from a neighbouring round.
-- Expect keys and layouts to change between seasons. Plan: dispatch on `version`/`code`, keep a test corpus per season, flag matches that fail consistency checks instead of showing wrong stats.
+**Pièges connus**
+- Le vainqueur du round est déduit des règles du jeu (élimination, pose + temps écoulé, pose sans temps écoulé = désamorçage, temps écoulé), pas lu dans le fichier.
+- Une pose est détectée par le saut du chrono vers le haut (compte à rebours du défuseur), ou par le drapeau d'alerte avec plus de 11,5 s restantes.
+- Quand une pose en cours prolonge le round au-delà de 0:00, le chrono se fige sous 1 s : les événements tardifs s'affichent à 2:59.
+- Un enregistrement fait juste après un rehost commence dans l'état « terminé », puis en sort.
+- Rehosts : même map et mêmes équipes ; un numéro de round répété remplace l'enregistrement précédent (incomplet). Certains fichiers d'après rehost ne listent qu'une équipe dans l'en-tête ; `match.Roster` reprend l'autre équipe d'un round voisin.
+- Les clés et la structure changeront d'une saison à l'autre. Plan : aiguiller selon `version`/`code`, garder un corpus de test par saison, signaler les matchs qui échouent aux contrôles de cohérence plutôt que d'afficher des stats fausses.
 
-## Stats definitions (`stats/`)
+## Définitions des stats (`stats/`)
 
-- Opening: first kill of the round. A team kill first is an opening death for that team and nobody's opening kill.
-- Trade: the killer dies to the victim's team within `TradeWindowMs` (default 5000). One kill avenging several deaths is one trade kill.
-- Clutch: player left alone on their team; size = enemies alive at that moment; won if the team wins the round.
-- Situations: each NvM state counted once per round, with rounds won.
-- Players are keyed by profile id when present, by name otherwise. Rounds with unknown winner are skipped and counted in `SkippedRounds`.
+- Ouverture : premier kill du round. Un team kill en premier compte comme première mort pour cette équipe et comme premier kill pour personne.
+- Trade : le tueur meurt, tué par l'équipe de la victime, dans les `TradeWindowMs` (5000 par défaut). Un kill qui venge plusieurs morts compte pour un seul kill de trade.
+- Clutch : joueur resté seul dans son équipe ; taille = nombre d'ennemis en vie à ce moment ; gagné si l'équipe gagne le round.
+- Situations : chaque état NvM compté une fois par round, avec le nombre de rounds gagnés.
+- Les joueurs sont identifiés par leur profile id quand il existe, par leur nom sinon. Les rounds sans vainqueur connu sont écartés et comptés dans `SkippedRounds`.
 
-## Next steps
+## Prochaines étapes
 
-1. Decode the bomb site, then the planter/defuser (unlocks per-site stats and full KOST).
-2. Per-side, per-map and per-operator breakdowns of the existing stats.
-3. Get ranked replays from the user's PC to check `matchtype`, profile ids and differences from tournament files.
-4. Then the server, web UI and Windows app.
+1. Décoder le site de bombe, puis qui pose et qui désamorce (débloque les stats par site et le KOST complet).
+2. Ventiler les stats existantes par côté, map et opérateur.
+3. Récupérer des replays de ranked sur le PC de l'utilisateur pour vérifier `matchtype`, les profile ids et les différences avec les fichiers de tournoi.
+4. Ensuite le serveur, l'interface web et l'app Windows.
 
-Always show sample sizes next to percentages: clutches and rare situations rest on few cases.
+Toujours afficher la taille de l'échantillon à côté d'un pourcentage : les clutches et les situations rares reposent sur peu de cas.
