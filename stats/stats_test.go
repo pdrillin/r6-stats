@@ -36,7 +36,7 @@ func kill(sec int, killer, victim string) rec.Kill {
 }
 
 func compute(rounds ...*rec.Round) *Report {
-	m := &match.Match{Teams: [2]string{"A", "B"}}
+	m := &match.Match{Map: "Chalet", Teams: [2]string{"A", "B"}}
 	for i, r := range rounds {
 		r.Complete = true
 		m.Rounds = append(m.Rounds, match.RoundFile{Header: rec.Header{RoundNumber: i, Players: roster()}, Round: r})
@@ -193,5 +193,35 @@ func TestUnknownWinnerSkipped(t *testing.T) {
 	r := compute(&rec.Round{Winner: -1, Kills: []rec.Kill{kill(10, "a1", "b1")}})
 	if r.Rounds != 0 || r.SkippedRounds != 1 || len(r.Players) != 0 {
 		t.Errorf("rounds %d, skipped %d, players %d; want 0, 1, 0", r.Rounds, r.SkippedRounds, len(r.Players))
+	}
+}
+
+func TestSites(t *testing.T) {
+	const office, bar = "2F Master Bedroom / 2F Office", "1F Bar / 1F Gaming Room"
+	plant := &rec.Clock{Phase: rec.PhaseAction, ElapsedMs: 90000}
+	r := compute(
+		// A attacks (see roster) in every round.
+		&rec.Round{Winner: 0, Site: office, Plant: plant},
+		&rec.Round{Winner: 1, Site: office, Plant: plant},
+		&rec.Round{Winner: 1, Site: office},
+		&rec.Round{Winner: 0, Site: bar},
+		&rec.Round{Winner: 0}, // site unknown: counted in rounds, not in sites
+	)
+	a, b := r.Teams[0], r.Teams[1]
+	if len(a.Sites) != 2 || len(b.Sites) != 2 {
+		t.Fatalf("sites: A %d, B %d, want 2 each", len(a.Sites), len(b.Sites))
+	}
+	// Sorted by site name: bar first.
+	if s := a.Sites[1]; s.Site != office || s.Attack != (Record{3, 1}) || s.Plants != (Record{2, 1}) || s.Defense != (Record{}) {
+		t.Errorf("A on %s: %+v", office, *s)
+	}
+	if s := b.Sites[1]; s.Defense != (Record{3, 2}) || s.Attack != (Record{}) || s.Plants != (Record{}) {
+		t.Errorf("B on %s: %+v", office, *s)
+	}
+	if s := a.Sites[0]; s.Site != bar || s.Map != "Chalet" || s.Attack != (Record{1, 1}) {
+		t.Errorf("A on %s: %+v", bar, *s)
+	}
+	if a.Rounds.Count != 5 {
+		t.Errorf("A rounds = %d, want 5", a.Rounds.Count)
 	}
 }

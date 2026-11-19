@@ -120,6 +120,7 @@ func TestCorpusRounds(t *testing.T) {
 	}
 
 	checked := 0
+	sites := map[string][]string{} // by map id
 	for i, d := range all {
 		name := filepath.Base(d.path)
 		known := map[string]bool{}
@@ -139,6 +140,10 @@ func TestCorpusRounds(t *testing.T) {
 				t.Errorf("%s: kill of %s has no usable time: %+v", name, k.Victim, k.Clock)
 			}
 		}
+		if d.r.Site == "" || !strings.Contains(d.r.Site, " / ") {
+			t.Errorf("%s: site %q", name, d.r.Site)
+		}
+		sites[d.h.MapID] = append(sites[d.h.MapID], d.r.Site)
 		if !d.r.Complete {
 			if d.r.Winner != -1 {
 				t.Errorf("%s: incomplete round has winner %d", name, d.r.Winner)
@@ -162,6 +167,17 @@ func TestCorpusRounds(t *testing.T) {
 			t.Errorf("%s: winner %d (%s), next round's score says %d", name, d.r.Winner, d.r.WinReason, want)
 		}
 		checked++
+	}
+	// A map has four bomb sites, of which a competitive pool uses three or
+	// four; every site is defended at least once on each map of the corpus.
+	for mapID, list := range sites {
+		distinct := map[string]bool{}
+		for _, s := range list {
+			distinct[s] = true
+		}
+		if len(distinct) < 2 || len(distinct) > 4 {
+			t.Errorf("map %s: %d distinct sites: %v", mapID, len(distinct), distinct)
+		}
 	}
 	t.Logf("%d rounds decoded, %d winners checked against the next score", len(all), checked)
 }

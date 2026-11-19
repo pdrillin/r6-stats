@@ -79,6 +79,21 @@ type Team struct {
 	// Situations counts the rounds that went through each state, at most
 	// once per round, and how many the team went on to win.
 	Situations map[Situation]*Record `json:"-"`
+
+	// Sites breaks rounds down by bomb site, ordered by map then site.
+	Sites []*Site `json:"sites"`
+}
+
+// Site holds a team's rounds on one bomb site.
+type Site struct {
+	Map  string `json:"map"`
+	Site string `json:"site"`
+	// Attack and Defense count rounds played on each side and rounds won.
+	Attack  Record `json:"attack"`
+	Defense Record `json:"defense"`
+	// Plants counts attacking rounds where the team planted the defuser,
+	// and how many of those it won.
+	Plants Record `json:"plants"`
 }
 
 // Report is the result of Compute.
@@ -106,7 +121,7 @@ func Compute(opt Options, matches ...*match.Match) *Report {
 				continue
 			}
 			c.rep.Rounds++
-			c.round(m.Teams, m.Roster(i), rf.Round)
+			c.round(m.Map, m.Teams, m.Roster(i), rf.Round)
 		}
 	}
 	sort.SliceStable(c.rep.Players, func(i, j int) bool {
@@ -160,9 +175,28 @@ func (c *collector) player(p rec.Player, team string) *Player {
 	return pl
 }
 
+// site returns the team's record for a bomb site, creating it if needed.
+func (t *Team) site(mapName, site string) *Site {
+	for _, s := range t.Sites {
+		if s.Map == mapName && s.Site == site {
+			return s
+		}
+	}
+	s := &Site{Map: mapName, Site: site}
+	t.Sites = append(t.Sites, s)
+	sort.SliceStable(t.Sites, func(i, j int) bool {
+		a, b := t.Sites[i], t.Sites[j]
+		if a.Map != b.Map {
+			return a.Map < b.Map
+		}
+		return a.Site < b.Site
+	})
+	return s
+}
+
 // round adds one round. teams are the two team names by index, roster the
 // ten players, r the decoded round, whose winner is known.
-func (c *collector) round(teams [2]string, roster []rec.Player, r *rec.Round) {
+func (c *collector) round(mapName string, teams [2]string, roster []rec.Player, r *rec.Round) {
 	team := [2]*Team{c.team(teams[0]), c.team(teams[1])}
 	byName := map[string]*Player{}
 	alive := [2]map[string]bool{{}, {}}
@@ -175,8 +209,28 @@ func (c *collector) round(teams [2]string, roster []rec.Player, r *rec.Round) {
 		byName[p.Name] = pl
 		alive[p.Team][p.Name] = true
 	}
+	attacker := -1
+	for _, p := range roster {
+		if p.Side == rec.Attack && (p.Team == 0 || p.Team == 1) {
+			attacker = p.Team
+			break
+		}
+	}
 	for t := range team {
-		team[t].Rounds.add(r.Winner == t)
+		won := r.Winner == t
+		team[t].Rounds.add(won)
+		if r.Site == "" || attacker < 0 {
+			continue
+		}
+		s := team[t].site(mapName, r.Site)
+		if t == attacker {
+			s.Attack.add(won)
+			if r.Plant != nil {
+				s.Plants.add(won)
+			}
+		} else {
+			s.Defense.add(won)
+		}
 	}
 
 	var clutching [2]bool

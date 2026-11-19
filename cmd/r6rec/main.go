@@ -214,7 +214,7 @@ func matches(roots []string) error {
 			mapName, m.Teams[0], score[0], score[1], m.Teams[1], len(m.Rounds), len(m.Superseded))
 
 		w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-		fmt.Fprintln(w, "  ROUND\tATTACK\tWINNER\tHOW\tKILLS\tPLANT\tLENGTH")
+		fmt.Fprintln(w, "  ROUND\tATTACK\tSITE\tWINNER\tHOW\tKILLS\tPLANT\tLENGTH")
 		for _, rf := range m.Rounds {
 			h, r := rf.Header, rf.Round
 			atk, winner, plant := "?", "?", "-"
@@ -231,8 +231,12 @@ func matches(roots []string) error {
 			if r.Plant != nil {
 				plant = clock(r.Plant.ElapsedMs)
 			}
-			fmt.Fprintf(w, "  %d\t%s\t%s\t%s\t%d\t%s\t%s\n",
-				h.RoundNumber+1, atk, winner, r.WinReason, len(r.Kills), plant, clock(r.End.ElapsedMs))
+			site := r.Site
+			if site == "" {
+				site = "?"
+			}
+			fmt.Fprintf(w, "  %d\t%s\t%s\t%s\t%s\t%d\t%s\t%s\n",
+				h.RoundNumber+1, atk, site, winner, r.WinReason, len(r.Kills), plant, clock(r.End.ElapsedMs))
 		}
 		w.Flush()
 
@@ -287,6 +291,15 @@ func statistics(args []string) error {
 	for _, t := range rep.Teams {
 		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\n", t.Name,
 			record(t.Rounds), record(t.OpeningKills), record(t.OpeningDeaths), ratio(t.TradedDeaths, t.Deaths))
+	}
+	w.Flush()
+
+	fmt.Println("\nBOMB SITES (rounds won; PLANTS: attacking rounds with a plant, and won)")
+	for _, t := range rep.Teams {
+		fmt.Fprintln(w, t.Name+"\tMAP\tSITE\tATTACK\tDEFENSE\tPLANTS")
+		for _, s := range t.Sites {
+			fmt.Fprintf(w, "\t%s\t%s\t%s\t%s\t%s\n", s.Map, s.Site, record(s.Attack), record(s.Defense), record(s.Plants))
+		}
 	}
 	w.Flush()
 

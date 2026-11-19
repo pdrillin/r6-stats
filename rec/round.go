@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/binary"
 	"sort"
+	"strings"
 )
 
 // The body is a stream of object updates. An update is an object reference
@@ -32,6 +33,13 @@ const (
 	keyVictim     = 0xac190f70 // string
 	keyVictimTeam = 0x782e7b50 // u32, team index + 1
 	keyHeadshot   = 0xc35ba44e // bool
+
+	// HUD label objects. The same key holds room names (player locations,
+	// spawn points) and bomb site labels.
+	keyLabel = 0xaf9899ca // string
+	// keySiteSlot is 1 on the label of the current round's bomb site. A
+	// second label object can hold an older site with slot 2.
+	keySiteSlot = 0x2ca42af6 // u32
 )
 
 const roundStateOver = 3
@@ -92,6 +100,9 @@ type Round struct {
 	// Winner is the index into Header.Teams, or -1 when it cannot be told.
 	Winner    int       `json:"winner"`
 	WinReason WinReason `json:"winReason,omitempty"`
+	// Site is the bomb site defended this round, as the two rooms the game
+	// names it by, e.g. "2F Master Bedroom / 2F Office". Empty if not found.
+	Site string `json:"site"`
 }
 
 // Body decompresses the whole replay body.
@@ -136,6 +147,7 @@ func decodeRound(h *Header, body []byte) *Round {
 		r.End = clockAt(endOff)
 	}
 	r.Kills = readKills(body, clockAt)
+	r.Site = readSite(body)
 	r.Winner, r.WinReason = decideWinner(h, r)
 	return r
 }
@@ -215,6 +227,40 @@ func readTimeline(body []byte, r *Round) (ticks []tick, endOff int) {
 		prev = ms
 	}
 	return ticks, endOff
+}
+
+// siteSeparator joins the rooms of a site label in the game's HUD markup.
+const siteSeparator = "<br/>"
+
+// readSite returns the label of the current bomb site. Site labels are only
+// sent in the initial state of the recording and never change afterwards.
+func readSite(body []byte) string {
+	key := binary.BigEndian.AppendUint32(nil, keyLabel)
+	for pos := 0; ; {
+		i := bytes.Index(body[pos:], key)
+		if i < 0 {
+			return ""
+		}
+		at := pos + i
+		pos = at + 1
+		// A label object's first property is the label itself.
+		if at < 9 || body[at-9] != tagObject {
+			continue
+		}
+		var label string
+		current := false
+		readProps(body, at, func(key uint32, val []byte) {
+			switch {
+			case key == keyLabel && label == "":
+				label = string(val)
+			case key == keySiteSlot && len(val) == 4:
+				current = binary.LittleEndian.Uint32(val) == 1
+			}
+		})
+		if current && strings.Contains(label, siteSeparator) {
+			return strings.Join(strings.Split(label, siteSeparator), " / ")
+		}
+	}
 }
 
 // roundObjectRef returns the object reference (tag and id) of the round state

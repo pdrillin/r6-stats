@@ -68,14 +68,18 @@ Entiers en little-endian sauf mention contraire.
 - Les blocs joueur commencent à `playerid` : `profileid`, `playername`, `team` (indice d'équipe), `heroname`, `alliance`, `roleimage`, `rolename` (nom affiché de l'opérateur), `roleportrait`.
 - `alliance` : 3 = attaque, 4 = défense (vérifié avec les opérateurs choisis sur les deux mi-temps).
 - Match : `version`, `code`, `datetime`, `id` (identifiant de match, change à chaque rehost), `matchtype` (3 dans tout le corpus ; valeur en ranked inconnue), `worldid` (identifiant de map, voir `rec/maps.go`), `gamemodeid`, `roundnumber` (à partir de 0), `teamname0/1`, `startingteamscore0/1` (score *avant* le round), `maxnbplayersperteam`, de nombreux `gmsetting`.
-- L'en-tête ne contient ni le résultat du round, ni le site de bombe.
+- L'en-tête ne contient ni le résultat du round, ni le site de bombe (le site est dans le corps, voir plus bas).
 - Replays de tournoi : `profileid` à zéro, `isspectator` = 1. Les replays de ranked seront différents ; aucun n'a encore été examiné.
 
 **Corps**
 - Un flux de mises à jour d'objets : `0x23` + identifiant d'objet sur 8 octets, puis des propriétés. Chaque propriété = clé de 4 octets (un hash, lu en big-endian dans le code), longueur sur 1 octet, valeur. Les propriétés après la première sont préfixées par `0x22`, ou par `0x26` quand un indice de tableau sur 4 octets précède la longueur.
 - Objet d'état du round (repéré par sa première clé `0x1f07efc9`) : `0x1f07efc9` chrono en secondes, `0x1837466c` chrono en ms, `0x35f88fcf` drapeau d'alerte (pose, ou 10 dernières secondes), `0xbb094fd3` état du round (3 = terminé).
 - Entrée du kill feed (première clé `0x5934e58b`) : `0xd9133cba` tueur, `0xac190f70` victime, `0xc198de70` / `0x782e7b50` équipe du tueur / de la victime + 1, `0xc35ba44e` headshot. Les entrées sont renvoyées à chaque redessin du feed : dédoublonner par identifiant d'objet. Les entrées sans victime sont des annonces de phase.
-- Des noms de pièces (`"2F Library Stairs"`, clé `0xaf9899ca` indexée) apparaissent dans le corps ; pas encore rattachés aux joueurs.
+- Objets « étiquette » (clé `0xaf9899ca`), présents dans l'état initial du corps :
+  - **Site de bombe** : valeur non indexée de la forme `"2F Master Bedroom<br/>2F Office"`, avec `0x2ca42af6` = 1. Un second objet peut porter un ancien site avec `0x2ca42af6` = 2 (par exemple le dernier site de la map précédente) : l'ignorer. L'étiquette n'est jamais mise à jour pendant le round. Vérifié sur les 84 fichiers : une seule étiquette active par round.
+  - **Points d'apparition des attaquants** : valeur non indexée (`"Campfire"`, `"Lakeside"`) suivie de `0x76fee40a` = 4. Pas encore exploités.
+  - **Pièce courante** (probablement d'un joueur) : `0xaf9899ca` = `ffffffffffffffff`, puis `[0]` = nom de la pièce. Dans l'état initial, 5 objets portent une pièce (les défenseurs, sur ou près du site) et 15 sont vides. Mises à jour pendant le round ; pas encore rattachées aux joueurs.
+- Les noms de pièces peuvent différer légèrement des étiquettes de site (`"1F  Kitchen Cooking"` avec deux espaces sur Kafe).
 - Un événement prend l'heure de la dernière mise à jour du chrono qui le précède dans le corps (le corps est chronologique).
 
 **Pièges connus**
@@ -92,11 +96,12 @@ Entiers en little-endian sauf mention contraire.
 - Trade : le tueur meurt, tué par l'équipe de la victime, dans les `TradeWindowMs` (5000 par défaut). Un kill qui venge plusieurs morts compte pour un seul kill de trade.
 - Clutch : joueur resté seul dans son équipe ; taille = nombre d'ennemis en vie à ce moment ; gagné si l'équipe gagne le round.
 - Situations : chaque état NvM compté une fois par round, avec le nombre de rounds gagnés.
+- Sites : par équipe, map et site, rounds joués et gagnés en attaque et en défense, et rounds d'attaque avec pose (et gagnés). Les rounds sans site connu ne comptent pas dans cette ventilation.
 - Les joueurs sont identifiés par leur profile id quand il existe, par leur nom sinon. Les rounds sans vainqueur connu sont écartés et comptés dans `SkippedRounds`.
 
 ## Prochaines étapes
 
-1. Décoder le site de bombe, puis qui pose et qui désamorce (débloque les stats par site et le KOST complet).
+1. Décoder qui pose et qui désamorce (débloque le KOST complet), et rattacher les pièces courantes aux joueurs (où on tue, où on meurt). Le site de bombe est fait.
 2. Ventiler les stats existantes par côté, map et opérateur.
 3. Récupérer des replays de ranked sur le PC de l'utilisateur pour vérifier `matchtype`, les profile ids et les différences avec les fichiers de tournoi.
 4. Ensuite le serveur, l'interface web et l'app Windows.
