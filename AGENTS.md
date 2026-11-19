@@ -4,7 +4,7 @@ Guide pour les agents de code qui travaillent sur ce dépôt. À lire avant tout
 
 ## Le projet
 
-Statistiques de match avancées pour Rainbow Six Siege, calculées à partir des fichiers de replay du jeu (`.rec`). L'objectif est d'aller plus loin que les trackers publics (K/D, winrate) en exploitant l'ordre et le moment des événements de chaque round.
+Statistiques de match avancées pour Rainbow Six Siege, calculées à partir des fichiers de replay du jeu (`.rec`). L'objectif est d'aller plus loin que les trackers publics (K/D, winrate) en exploitant l'ordre et le moment des événements de chaque round, pour les équipes et les ligues.
 
 Produit prévu, pas encore construit :
 
@@ -16,19 +16,23 @@ Le parsing se fait côté serveur : un changement de saison ne demande qu'une mi
 
 ## Utilisations visées
 
-Trois utilisations, un seul moteur (parser, regroupement en matchs, stats). Seuls changent l'ensemble des matchs pris en compte et qui peut les voir.
+Deux utilisations, un seul moteur (parser, regroupement en matchs, stats). Seuls changent l'ensemble des matchs pris en compte et qui peut les voir.
 
-| | Ligue | Équipe | Tracker public |
-|---|---|---|---|
-| Matchs | ceux de la compétition | scrims et officiels de l'équipe | tous les matchs envoyés où le joueur apparaît |
-| Envoyés par | les organisateurs | un membre de l'équipe | n'importe qui |
-| Visibles par | tout le monde | l'équipe | tout le monde |
-| Vue principale | classements, leaders par stat, pages équipes | « nous » contre l'adversaire : maps, sites, ouvertures, revue des rounds, préparation contre un adversaire | profil d'un joueur et son évolution |
+| | Équipe | Ligue ou tournoi |
+|---|---|---|
+| Matchs | praccs et officiels de l'équipe | tous les matchs de la compétition |
+| Envoyés par | un membre de l'équipe (un seul suffit : chaque replay contient les 10 joueurs) | l'organisateur ou l'observateur, qui enregistre chaque match en spectateur (format du corpus) |
+| Visibles par | l'équipe | les organisateurs, et le public si la ligue publie ses matchs |
+| Vue principale | « nous » contre l'adversaire : maps, sites, ouvertures, revue des rounds, préparation contre un adversaire | classements (avec un minimum de rounds), leaders par stat, pages des équipes inscrites, pages des matchs |
+
+Dans les deux cas la couverture est complète : une équipe a tous ses matchs, une ligue tous les siens, chacun alimenté par une seule personne. C'est ce qui rend les stats fiables, et la profondeur y répond à un vrai besoin (préparer un match, classer une compétition).
+
+**Pas de tracker public** (décision de l'utilisateur, novembre 2026) : un tracker ne vaut que par sa couverture, et des replays envoyés à la main ne couvrent que les parties des utilisateurs de l'outil. La page de la plupart des joueurs serait vide ou incomplète, là où R6 Tracker a toutes leurs parties via Ubisoft. Ne pas y revenir sauf si l'outil devient assez répandu pour que la couverture soit réelle. Cela évite aussi de publier les stats de joueurs qui n'ont rien demandé.
 
 Modèle prévu :
 
-- **Espace** : un ensemble de matchs, des membres, une visibilité (privé ou public). Une ligue est un espace public à plusieurs équipes ; une équipe est un espace privé qui sait laquelle des deux équipes est « nous » (à reconnaître par ses joueurs plutôt que par son nom). Les stats d'un espace sont `stats.Compute` sur ses matchs, comme le filtre par map aujourd'hui ; l'interface actuelle sert telle quelle dans un espace.
-- **Joueur** : identifié par son profile id Ubisoft d'un espace à l'autre. La page tracker = ses stats sur les matchs publics où il apparaît.
+- **Espace** : un ensemble de matchs, des membres, une visibilité (privé ou public). Une équipe est un espace privé qui sait laquelle des deux équipes est « nous » (à reconnaître par ses joueurs plutôt que par son nom). Une ligue est un espace à plusieurs équipes, qui peut être rendu public. Les stats d'un espace sont `stats.Compute` sur ses matchs, comme les filtres par map et par type aujourd'hui ; l'interface actuelle sert telle quelle dans un espace.
+- **Joueur** : identifié par son profile id Ubisoft. Son profil n'existe qu'à l'intérieur d'un espace (ses stats dans l'équipe ou dans la ligue) ; aucune page ne le suit d'un espace à l'autre.
 
 Confidentialité et accès :
 
@@ -38,12 +42,12 @@ Confidentialité et accès :
   - **joueur** : envoie des replays et consulte tout ;
   - plus tard, **lecture seule** (analyste, remplaçant).
 - **Un membre n'apparaît pas forcément dans les replays** (le coach, par exemple) : l'accès dépend d'un compte sur l'outil, pas de l'identité en jeu. À côté, chaque joueur de l'équipe est relié à son profil Ubisoft pour reconnaître « nous » dans les replays.
-- **Les données de l'adversaire restent dans l'espace** : l'équipe affrontée en pracc ne voit rien, et ces matchs n'alimentent jamais une page publique (tracker, ligue). Seuls les matchs mis volontairement dans un espace public le peuvent.
-- **Connexion** : comptes via Discord (OAuth), invitations par lien. Prévu avec le serveur partagé, conçu pour s'ouvrir ensuite aux ligues et au public. En attendant, chaque page de l'interface doit être pensée comme appartenant à un espace.
+- **Les données de l'adversaire restent dans l'espace** : l'équipe affrontée en pracc ne voit rien, et ces matchs n'alimentent jamais une page publique. Les seules données publiques sont celles d'une ligue qui choisit de publier ses matchs officiels.
+- **Connexion** : comptes via Discord (OAuth), invitations par lien. Prévu avec le serveur partagé, conçu pour accueillir ensuite les ligues. En attendant, chaque page de l'interface doit être pensée comme appartenant à un espace.
 
 Types de match, à ne jamais mélanger dans une même stat par défaut :
 
-- **Ranked** (et autres parties en ligne : non classée, partie rapide) : coéquipiers souvent inconnus, pas de stratégie d'équipe. Utile pour le profil d'un joueur, pas pour le travail d'équipe.
+- **Ranked** (et autres parties en ligne : non classée, partie rapide) : coéquipiers souvent inconnus, pas de stratégie d'équipe. **Secondaire** : pourrait servir à un joueur de l'équipe pour suivre son jeu individuel, mais n'est pas une priorité.
 - **Pracc** (scrim, entraînement) : partie personnalisée, l'équipe travaille des stratégies et peut en tester. C'est la matière principale de l'espace équipe.
 - **Match officiel** (ligue, tournoi) : partie personnalisée, ce qui compte vraiment. Matière de l'espace ligue, et vue à part dans l'espace équipe.
 
@@ -51,13 +55,12 @@ Détection :
 
 - Ranked ou partie personnalisée : à lire dans l'en-tête (`matchtype`, `gamemodeid`, éventuellement les `gmsetting`). Le corpus, uniquement des parties personnalisées, a `matchtype` = 3 ; la valeur en ranked est inconnue tant qu'aucun replay de ranked n'a été examiné. Un rehost n'existe qu'en partie personnalisée.
 - Pracc ou officiel : même format de fichier, impossible à distinguer automatiquement. C'est une étiquette posée par l'utilisateur, modifiable par match (fait : `store.Kind`, sélecteur sur la page d'un match). Un match non étiqueté est un pracc (`store.DefaultKind`) ; dans un futur espace ligue, ce sera officiel.
-- Dans l'interface : un filtre de type de match, sur le modèle du filtre par map (`?type=`). Par défaut, l'espace équipe montre pracc et officiels sans le ranked ; le profil d'un joueur sépare ranked et parties personnalisées.
+- Dans l'interface : filtre de type de match (`?kind=`, fait pour pracc et officiel). Si le ranked est pris en charge un jour, il est exclu par défaut des vues d'équipe et séparé dans le profil d'un joueur.
 
 Ordre retenu :
 
 1. **Équipe d'abord.** C'est le format validé (parties privées, rehosts), c'est là que les stats avancées apportent le plus, l'infrastructure est minime, et l'utilisateur et son équipe sont les premiers utilisateurs.
-2. **Ligue ensuite** : même format de replay ; il faut surtout des vues de classement et l'accès public en lecture.
-3. **Tracker public en dernier** : couverture limitée aux matchs envoyés (R6 Tracker a toutes les parties via Ubisoft), format de ranked non vérifié, question RGPD (stats publiques de joueurs qui n'ont rien envoyé), coût de stockage.
+2. **Ligue ensuite** : même format de replay (enregistrements en spectateur, comme le corpus) ; il faut surtout des vues de classement, la gestion des équipes inscrites et un accès public en lecture si la ligue le souhaite.
 
 ## Travailler avec l'utilisateur
 
@@ -191,12 +194,12 @@ Entiers en little-endian sauf mention contraire.
 
 ## Prochaines étapes
 
-1. **Replays de l'équipe de l'utilisateur** (scrims, officiels, plus quelques ranked pour plus tard). Vérifier les noms d'équipe dans les parties privées (vrais noms ou « Team 1 »), les profile ids (remplis ou à zéro), comment reconnaître « notre » équipe, et quels champs de l'en-tête distinguent le ranked des parties personnalisées (`matchtype`, `gamemodeid`).
+1. **Replays de l'équipe de l'utilisateur** (praccs et officiels, enregistrés en joueur et non en spectateur). Vérifier les noms d'équipe dans les parties privées (vrais noms ou « Team 1 »), les profile ids (remplis ou à zéro), le joueur qui enregistre (`RecordingProfileID`), et comment reconnaître « notre » équipe. Le format du ranked n'est à examiner que s'il devient utile.
 2. **App Windows en local** (Wails), sans serveur (cache des rounds et stockage local faits) : lit le dossier `MatchReplay`, conserve les replays avant que le jeu ne les supprime, embarque l'API (`api/`) et l'interface construite (`web/dist`).
-3. **Vues « équipe »** (premier prototype fait : accueil d'équipe et fiche adversaire, sur le corpus) : à compléter avec le type de match (détecté pour ranked ou partie personnalisée, étiquette pracc ou officiel posée par l'utilisateur) et filtre associé, notion de « nous » contre l'adversaire, fiche de préparation contre un adversaire, accueil centré sur l'équipe (la page Joueurs actuelle, un tableau de tous les joueurs, ne tiendra pas avec des replays de ranked et deviendra un onglet d'analyse avec un minimum de rounds).
+3. **Vues « équipe »** (faits : accueil d'équipe, fiche adversaire, type pracc ou officiel et son filtre) : à compléter avec la reconnaissance de « nous » par les joueurs plutôt que par le nom, la revue d'un round (positions au fil du temps), et un minimum de rounds sur la page Joueurs.
 4. **Serveur partagé** quand plusieurs membres mettent leurs replays en commun : espaces privés, comptes Discord, rôles et invitations, envoi des `.rec`, Postgres, stockage objet.
-5. **Ligue**, puis éventuellement le tracker public.
+5. **Ligue** : espace à plusieurs équipes, classements, publication facultative.
 
-Le filtre par période attend d'avoir plusieurs semaines de parties.
+Le filtre par période attend d'avoir plusieurs semaines de parties. Pas de tracker public (voir « Utilisations visées »).
 
 Toujours afficher la taille de l'échantillon à côté d'un pourcentage : les clutches et les situations rares reposent sur peu de cas.
