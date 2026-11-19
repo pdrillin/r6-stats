@@ -1,9 +1,8 @@
-import { NavLink, Route, Routes, useLocation } from "react-router-dom";
-import { filterSearch } from "./components/MapFilter";
+import { Route, Routes } from "react-router-dom";
+import { Shell } from "./components/Shell";
 import { MembersPage } from "./pages/MembersPage";
-import { Footer } from "./components/Footer";
 import { UploadPage } from "./pages/UploadPage";
-import { signOut, useWhere } from "./space";
+import { useWhere } from "./space";
 import { ComparePage } from "./pages/ComparePage";
 import { HomePage } from "./pages/HomePage";
 import { MatchPage } from "./pages/MatchPage";
@@ -16,44 +15,9 @@ import { TeamPage } from "./pages/TeamPage";
 import { TeamsPage } from "./pages/TeamsPage";
 
 export function App() {
-  // The map filter follows the reader from page to page.
-  const filters = filterSearch(useLocation().search);
-  const keep = (path: string) => path + filters;
-  const { server, space, me } = useWhere();
+  const { server } = useWhere();
   return (
-    <>
-      <header className="topbar">
-        <NavLink to={keep("/")} className="brand">
-          r6-stats
-        </NavLink>
-        <nav>
-          <NavLink to={keep("/")} end>
-            Mon équipe
-          </NavLink>
-          <NavLink to={keep("/players")}>Joueurs</NavLink>
-          <NavLink to={keep("/teams")}>Équipes</NavLink>
-          <NavLink to={keep("/matches")}>Matchs</NavLink>
-          <NavLink to={keep("/rooms")}>Pièces</NavLink>
-          <NavLink to={keep("/compare")}>Comparer</NavLink>
-          {server && (
-            <>
-              <NavLink to="/upload">Envoyer</NavLink>
-              <NavLink to="/members">Membres</NavLink>
-            </>
-          )}
-        </nav>
-        {server && space && (
-          <div className="account">
-            <a href="/" className="space-switch" title="Changer d'espace">
-              {space.name}
-            </a>
-            {me && <span className="muted">{me.name}</span>}
-            <button className="link-button" onClick={signOut}>
-              Déconnexion
-            </button>
-          </div>
-        )}
-      </header>
+    <Shell>
       <main>
         <Routes>
           <Route path="/" element={<HomePage />} />
@@ -71,7 +35,6 @@ export function App() {
           <Route path="*" element={<p className="error">Page introuvable.</p>} />
         </Routes>
       </main>
-      {server && <Footer />}
-    </>
+    </Shell>
   );
 }

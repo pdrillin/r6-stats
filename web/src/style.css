@@ -911,20 +911,6 @@ h3 {
 }
 
 /* Accounts and spaces (r6server) */
-.account {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 0.9rem;
-  white-space: nowrap;
-  font-size: 0.9rem;
-}
-.space-switch {
-  font-weight: 600;
-  padding: 0.25rem 0.6rem;
-  border: 1px solid var(--border);
-  border-radius: 6px;
-}
 main.narrow {
   max-width: 44rem;
 }
@@ -1056,14 +1042,6 @@ select:focus-visible,
 .invite-link .filters {
   flex-wrap: nowrap;
 }
-@media (max-width: 900px) {
-  .account > .muted {
-    display: none;
-  }
-  .account {
-    gap: 0.5rem;
-  }
-}
 
 .button.danger {
   color: var(--neg);
@@ -1105,4 +1083,308 @@ select:focus-visible,
 .prose a {
   text-decoration: underline;
   text-underline-offset: 3px;
+}
+
+/* Layout: side menu on wide screens, drawer on phones. */
+.layout {
+  min-height: 100vh;
+}
+.sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: 232px;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1rem 0.85rem;
+  background: var(--panel);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  z-index: 3;
+}
+.sidebar .brand {
+  padding: 0.2rem 0.5rem;
+  font-size: 1.1rem;
+}
+.content {
+  margin-left: 232px;
+  min-width: 0;
+}
+.content > main {
+  max-width: 1200px;
+}
+.space-block {
+  padding: 0.6rem 0.65rem;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--panel-2);
+  display: grid;
+  gap: 0.1rem;
+  font-size: 0.85rem;
+}
+.space-name {
+  font-weight: 700;
+  font-size: 0.95rem;
+  overflow-wrap: anywhere;
+}
+.small-link {
+  font-size: 0.8rem;
+  color: var(--muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.upload-button {
+  text-align: center;
+}
+.upload-button.active {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+.sidebar nav {
+  display: grid;
+  gap: 1rem;
+}
+.nav-group {
+  display: grid;
+  gap: 0.1rem;
+}
+.nav-title {
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  padding: 0 0.6rem 0.25rem;
+}
+.nav-group a {
+  padding: 0.45rem 0.6rem;
+  border-radius: 6px;
+  color: var(--text);
+}
+.nav-group a:hover {
+  background: var(--panel-2);
+  color: var(--text);
+}
+.nav-group a.active {
+  background: var(--panel-2);
+  font-weight: 600;
+  box-shadow: inset 3px 0 0 var(--accent);
+}
+.nav-group a:focus-visible,
+.sidebar .brand:focus-visible,
+.menu-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.account-block {
+  margin-top: auto;
+  padding: 0.75rem 0.6rem 0;
+  border-top: 1px solid var(--border);
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.85rem;
+}
+.account-links {
+  display: flex;
+  gap: 1rem;
+  align-items: baseline;
+}
+.mobilebar {
+  display: none;
+}
+.scrim {
+  display: none;
+}
+.button.small {
+  padding: 0.25rem 0.7rem;
+  font-size: 0.85rem;
+}
+
+@media (max-width: 900px) {
+  .content {
+    margin-left: 0;
+  }
+  .mobilebar {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    height: 52px;
+    padding: 0 0.75rem;
+    background: var(--panel);
+    border-bottom: 1px solid var(--border);
+  }
+  .menu-button {
+    display: grid;
+    place-items: center;
+    width: 40px;
+    height: 40px;
+    color: var(--text);
+    background: none;
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    cursor: pointer;
+  }
+  .mobilebar-title {
+    flex: 1;
+    min-width: 0;
+    font-weight: 700;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .sidebar {
+    width: min(280px, 85vw);
+    transform: translateX(-100%);
+    transition: transform 0.2s ease;
+    box-shadow: none;
+  }
+  .sidebar.open {
+    transform: none;
+    box-shadow: 0 0 40px rgba(0, 0, 0, 0.4);
+  }
+  .scrim {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 2;
+    background: rgba(0, 0, 0, 0.45);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sidebar {
+    transition: none;
+  }
+}
+
+/* Home */
+.page-head h1 {
+  margin-bottom: 0.1rem;
+}
+.lede {
+  margin: 0 0 0.5rem;
+  color: var(--muted);
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+.checklist {
+  margin: 1rem 0 1.5rem;
+  padding: 1rem 1.1rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--accent);
+  border-radius: 8px;
+}
+.checklist h2 {
+  margin: 0 0 0.6rem;
+}
+.checklist ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+.checklist li {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem 0.8rem;
+}
+.step-mark {
+  display: inline-grid;
+  place-items: center;
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 50%;
+  font-weight: 700;
+  font-size: 0.85rem;
+  border: 2px solid var(--accent);
+  flex: none;
+}
+.checklist li.done .step-mark {
+  background: var(--pos);
+  border-color: var(--pos);
+  color: #fff;
+}
+.checklist li.done .step-title {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+.step-title {
+  flex: 1;
+  min-width: 12rem;
+  font-weight: 600;
+}
+.key-numbers {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.75rem;
+  margin: 1rem 0 0.5rem;
+}
+.key-number {
+  padding: 0.9rem 1rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+}
+.key-label {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.key-value {
+  font-size: 2rem;
+  font-weight: 700;
+  line-height: 1.2;
+  margin: 0.15rem 0;
+}
+.key-sub {
+  font-size: 0.8rem;
+  color: var(--muted);
+}
+.insights {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 0.5rem;
+}
+.insights li {
+  display: flex;
+  gap: 0.7rem;
+  align-items: baseline;
+  padding: 0.65rem 0.9rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  line-height: 1.5;
+}
+.insight-mark {
+  flex: none;
+  width: 1rem;
+  text-align: center;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+.insights li.good .insight-mark {
+  color: var(--pos);
+}
+.insights li.bad .insight-mark {
+  color: var(--neg);
+}
+@media (max-width: 900px) {
+  .key-numbers {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .key-value {
+    font-size: 1.6rem;
+  }
 }
