@@ -80,6 +80,8 @@ Pour activer la connexion Discord :
 R6_DISCORD_CLIENT_ID=… R6_DISCORD_CLIENT_SECRET=… go run ./cmd/r6server serve
 ```
 
+Pour le mettre en ligne (VPS, HTTPS, sauvegardes) : voir [deploy/README.md](deploy/README.md).
+
 `R6_CREATORS` (identifiants Discord séparés par des virgules) limite la création d'espaces pendant la bêta. Pour essayer sans Discord, sur ta machine seulement : `serve -dev-login`, puis ouvrir `http://127.0.0.1:8080/auth/dev?name=Coach`.
 
 Sous Windows, les replays sont dans le dossier `MatchReplay` du jeu, avec un sous-dossier par match.

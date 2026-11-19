@@ -3,6 +3,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"io/fs"
@@ -10,9 +11,12 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"sort"
 	"strings"
+	"syscall"
+	"time"
 
 	"github.com/pdrillin/r6-stats/server"
 )
@@ -27,6 +31,8 @@ const usage = `usage:
                                        print an invitation link to the space
   r6server [-data dir] import <space-id> <dir>...
                                        send every .rec file under the folders
+  r6server [-data dir] backup <file>   write a consistent copy of the database
+                                       (safe while serve runs)
 
 -data is the folder of the database and the raw replays (default r6-data).
 
@@ -69,6 +75,12 @@ func main() {
 		err = importDirs(s, args[1:])
 	case "invite":
 		err = invite(s, args[1:])
+	case "backup":
+		if len(args) != 2 {
+			fl.Usage()
+			os.Exit(2)
+		}
+		err = s.Backup(args[1])
 	default:
 		fl.Usage()
 		os.Exit(2)
@@ -134,6 +146,14 @@ func serve(s *server.Server, args []string) error {
 	}
 
 	mux := http.NewServeMux()
+	// For monitoring: answers 200 while the database does.
+	mux.HandleFunc("GET /healthz", func(w http.ResponseWriter, r *http.Request) {
+		if err := s.Ping(); err != nil {
+			http.Error(w, "database unavailable", http.StatusServiceUnavailable)
+			return
+		}
+		fmt.Fprintln(w, "ok")
+	})
 	h := s.Handler(cfg)
 	mux.Handle("/api/", h)
 	mux.Handle("/auth/", h)
@@ -144,8 +164,33 @@ func serve(s *server.Server, args []string) error {
 	} else {
 		mux.Handle("/", http.FileServer(spaFS{http.Dir(*web)}))
 	}
+	srv := &http.Server{
+		Addr:    *addr,
+		Handler: mux,
+		// A client must send its headers quickly; bodies may take long
+		// (a match is tens of megabytes on a slow upload).
+		ReadHeaderTimeout: 10 * time.Second,
+		ReadTimeout:       15 * time.Minute,
+		IdleTimeout:       2 * time.Minute,
+		MaxHeaderBytes:    64 << 10,
+	}
+	// systemd stops the service with SIGTERM: finish the requests in
+	// progress (an upload being decoded) before the database closes.
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, syscall.SIGTERM, os.Interrupt)
+	done := make(chan error, 1)
+	go func() {
+		<-stop
+		log.Printf("shutting down")
+		ctx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+		defer cancel()
+		done <- srv.Shutdown(ctx)
+	}()
 	log.Printf("listening on %s (%s)", *addr, cfg.BaseURL)
-	return http.ListenAndServe(*addr, mux)
+	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+		return err
+	}
+	return <-done
 }
 
 // spaFS serves index.html for paths that are not files, so the interface's

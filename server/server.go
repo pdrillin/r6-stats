@@ -47,6 +47,24 @@ func Open(dir string) (*Server, error) {
 // Close closes the database.
 func (s *Server) Close() error { return s.db.Close() }
 
+// Ping checks that the database answers, for health checks.
+func (s *Server) Ping() error {
+	var n int
+	return s.db.QueryRow("SELECT 1").Scan(&n)
+}
+
+// Backup writes a consistent copy of the database to path, while the server
+// keeps running. Raw replays are plain files: copy them as they are.
+func (s *Server) Backup(path string) error {
+	if _, err := os.Stat(path); err == nil {
+		return fmt.Errorf("%s already exists", path)
+	}
+	// VACUUM INTO writes a snapshot of one transaction: never a half-written
+	// state, unlike copying the file.
+	_, err := s.db.Exec("VACUUM INTO ?", path)
+	return err
+}
+
 // ErrNotFound is returned for a space that does not exist.
 var ErrNotFound = errors.New("not found")
 

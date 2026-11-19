@@ -109,6 +109,8 @@ go run ./cmd/r6server import <id> Replays       # envoie tous les .rec d'un doss
 go run ./cmd/r6server spaces                    # liste les espaces
 go run ./cmd/r6server invite <id> [manager|player]  # lien d'invitation (premier responsable d'un espace créé ici)
 go run ./cmd/r6server serve                     # 127.0.0.1:8080 (-addr, -url, -web web/dist, -dev-login)
+go run ./cmd/r6server backup <fichier>          # copie cohérente de la base (VACUUM INTO), serveur en marche
+deploy/build.sh                                 # version à installer : dist/r6-stats-<version>.tar.gz
 # -data <dossier> avant la sous-commande : base et bruts (défaut r6-data)
 ```
 
@@ -151,7 +153,8 @@ Organisation : `Replays/<série>/<n> - <map>/Match-<date>-<id>/Match-...-RNN.rec
 | `api/` | API JSON pour l'interface, celle de `r6rec serve` et celle de chaque espace du serveur (`api.Store` : fichier local ou base du serveur). Lecture : `/api/overview` (`?map=`, `?kind=` ; calculée à la demande, gardée en mémoire, oubliée quand un type de match change), `/api/matches`, `/api/matches/{id}`, `/api/settings`. Écriture : `PUT /api/matches/{id}/kind`, `PUT /api/settings`, en JSON uniquement (un autre site ne peut pas envoyer de JSON au serveur local via le navigateur sans préflight, jamais accepté) ; sert aussi l'interface construite (repli sur `index.html` pour les routes de la SPA) |
 | `server/` | Serveur partagé. `auth.go` : connexion Discord (OAuth2, permission `identify` seule, jeton Discord jamais gardé, `state` lié au navigateur par un cookie), session = cookie aléatoire `HttpOnly` `SameSite=Lax` dont la base ne garde que le SHA-256, refus des modifications venant d'un autre site (`Sec-Fetch-Site`, `Origin`). `members.go` : utilisateurs, rôles (`manager` : invite, retire, change les rôles, étiquette les matchs, choisit « mon équipe » ; `player` : envoie et consulte), un espace garde toujours un responsable, invitations par lien (7 jours, plusieurs usages, révocables, seule l'empreinte est gardée). `http.go` : toutes les règles d'accès ; un non-membre reçoit 404 pour ne pas révéler l'existence de l'espace. `home.go` : page d'accueil minimale servie à `/` quand `-web` n'est pas donné (utilisateur connecté, ses espaces, connexion et déconnexion), pour ne jamais atterrir sur un 404 après la connexion Discord. Espaces, réception des replays (`Add` : décodé une fois, lié à l'espace, doublons repérés par SHA-256), base SQLite (`db.go`, migrations par `PRAGMA user_version` : ne jamais modifier une migration publiée, en ajouter une), bruts dans `raw/aa/bb/<sha256>.rec`, un bloc zstd JSON par round (en-tête complet compris), vue de chaque espace = un `api.Server` construit à la demande et oublié quand l'espace change, `Redecode` au démarrage pour les rounds d'un ancien parser. Routes : voir le commentaire de `Server.Handler` (connexion, `/api/me`, espaces, invitations, membres, envoi en multipart avec l'en-tête `X-R6-Upload: 1`, API de l'espace sous `/api/spaces/{id}/…`) |
 | `cmd/r6rec/` | Outil en ligne de commande |
-| `cmd/r6server/` | Le serveur partagé : `serve`, `create`, `invite`, `import`, `spaces` |
+| `cmd/r6server/` | Le serveur partagé : `serve` (délais HTTP, arrêt propre sur SIGTERM, `/healthz`), `create`, `invite`, `import`, `spaces`, `backup` |
+| `deploy/` | Mise en ligne : guide (`README.md`), service systemd durci, Caddyfile (HTTPS, en-têtes de sécurité, CSP vérifiée sur toutes les pages), `build.sh`, `update.sh` (sauvegarde avant bascule, vérification de `/healthz`), sauvegarde quotidienne (`backup.sh`, timer, restic hors du serveur) |
 | `web/` | Interface React + TypeScript + Vite. `src/api.ts` reprend à la main les types JSON de Go : un champ ajouté côté Go doit y être ajouté aussi |
 
 Interface web :
@@ -235,7 +238,7 @@ Entiers en little-endian sauf mention contraire.
    1. **fait** : cœur testable en local (`server/`, `cmd/r6server`) : base SQLite, stockage des bruts, envoi et décodage des matchs, espaces, API propre à chaque espace. Corpus : 84 rounds en 12 s, base de 508 Ko contre 578 Mo de bruts, stats identiques à `r6rec` ;
    2. **fait** : connexion Discord, sessions, rôles, invitations, contrôle d'accès, bêta fermée (`R6_CREATORS`), connexion de développement. Testé avec un faux Discord ; reste à l'essayer avec une vraie application Discord ;
    3. **fait** : interface : connexion, liste et création des espaces, invitations, envoi par glisser-déposer (dossiers compris), membres et rôles ; les pages de stats tournent dans l'espace ;
-   4. mise en ligne (VPS, domaine, HTTPS avec Caddy, sauvegardes) : l'utilisateur fournit l'hébergement, le domaine et l'application Discord.
+   4. mise en ligne : configuration prête dans `deploy/` (VPS Debian ou Ubuntu, Caddy, systemd, restic). Reste à l'utilisateur de choisir l'hébergeur, le domaine et l'espace de sauvegarde, puis de suivre `deploy/README.md`. Non testé sur un vrai VPS.
 5. **App Windows légère** : surveillance de `MatchReplay`, archive locale, envoi automatique à l'espace.
 6. **Ligue** : espace à plusieurs équipes, classements, publication facultative.
 

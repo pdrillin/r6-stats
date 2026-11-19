@@ -693,3 +693,31 @@ func TestHome(t *testing.T) {
 		t.Error("user name not escaped")
 	}
 }
+
+func TestBackup(t *testing.T) {
+	s := open(t, t.TempDir())
+	alice := newClient(t, s, Config{BaseURL: testURL}, "alice")
+	alice.createSpace("Ma team")
+	if err := s.Ping(); err != nil {
+		t.Fatal(err)
+	}
+
+	// A backup is a database the server opens as it is: restoring is
+	// putting it back as r6stats.db.
+	restored := t.TempDir()
+	path := filepath.Join(restored, "r6stats.db")
+	if err := s.Backup(path); err != nil {
+		t.Fatal(err)
+	}
+	if err := s.Backup(path); err == nil {
+		t.Error("backup overwrote an existing file")
+	}
+	r := open(t, restored)
+	spaces, err := r.SpacesOf(alice.user.ID)
+	if err != nil || len(spaces) != 1 || spaces[0].Name != "Ma team" || spaces[0].Role != Manager {
+		t.Errorf("restored spaces = %+v, %v", spaces, err)
+	}
+	if u, ok := r.SessionUser(alice.session); !ok || u.Name != "alice" {
+		t.Error("restored database lost the session")
+	}
+}

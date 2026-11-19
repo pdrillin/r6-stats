@@ -1,0 +1,52 @@
+# Service systemd du serveur r6-stats.
+# Installation : voir deploy/README.md.
+
+[Unit]
+Description=r6-stats (serveur partagé)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=simple
+User=r6-stats
+Group=r6-stats
+# Secrets et réglages (Discord, adresse publique) : fichier lisible par root
+# seulement, lu par systemd avant de lancer le serveur.
+EnvironmentFile=/etc/r6-stats/r6-stats.env
+# Le serveur n'écoute que sur la machine : Caddy reçoit le trafic HTTPS et le
+# lui transmet.
+ExecStart=/opt/r6-stats/current/r6server -data /var/lib/r6-stats serve -addr 127.0.0.1:8080 -url ${R6_URL} -web /opt/r6-stats/current/web
+Restart=on-failure
+RestartSec=5
+# Laisse le temps de finir un envoi en cours avant l'arrêt.
+TimeoutStopSec=150
+
+# Données : base et replays bruts.
+StateDirectory=r6-stats
+StateDirectoryMode=0750
+
+# Durcissement : le serveur ne peut écrire que dans /var/lib/r6-stats.
+NoNewPrivileges=yes
+ProtectSystem=strict
+ProtectHome=yes
+PrivateTmp=yes
+PrivateDevices=yes
+ProtectKernelTunables=yes
+ProtectKernelModules=yes
+ProtectKernelLogs=yes
+ProtectControlGroups=yes
+ProtectClock=yes
+ProtectHostname=yes
+RestrictAddressFamilies=AF_INET AF_INET6 AF_UNIX
+RestrictNamespaces=yes
+RestrictRealtime=yes
+RestrictSUIDSGID=yes
+LockPersonality=yes
+MemoryDenyWriteExecute=yes
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+CapabilityBoundingSet=
+UMask=0027
+
+[Install]
+WantedBy=multi-user.target

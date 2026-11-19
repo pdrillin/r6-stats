@@ -1,0 +1,32 @@
+# Configuration Caddy : HTTPS automatique (Let's Encrypt) devant r6-stats.
+# Remplacer stats.example.org par le domaine, puis copier vers
+# /etc/caddy/Caddyfile et recharger : systemctl reload caddy
+
+stats.example.org {
+	encode zstd gzip
+
+	# Les fichiers de l'interface ont un nom qui change à chaque version :
+	# le navigateur peut les garder indéfiniment.
+	@assets path /assets/*
+	header @assets Cache-Control "public, max-age=31536000, immutable"
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options "nosniff"
+		X-Frame-Options "DENY"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		Permissions-Policy "camera=(), microphone=(), geolocation=()"
+		# Scripts et données du site seulement ; avatars depuis Discord.
+		Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://cdn.discordapp.com; connect-src 'self'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+		-Server
+	}
+
+	reverse_proxy 127.0.0.1:8080
+
+	log {
+		output file /var/log/caddy/r6-stats.log {
+			roll_size 20MiB
+			roll_keep 5
+		}
+	}
+}
