@@ -30,6 +30,7 @@ go run ./cmd/r6rec ls Replays        # une ligne par round
 go run ./cmd/r6rec matches Replays   # matchs reconstitués, round par round
 go run ./cmd/r6rec stats Replays     # rapport de stats (-json pour du JSON)
 go run ./cmd/r6rec rooms Replays     # kills et morts par pièce (-n N pièces par map)
+go run ./cmd/r6rec split side Replays  # stats par côté (aussi : map, operator)
 go run ./cmd/r6rec round <fichier.rec>  # événements décodés d'un round
 go run ./cmd/r6rec header -raw <fichier.rec>
 go run ./cmd/r6rec dump <fichier.rec> <sortie.bin>  # corps décompressé, pour la rétro-ingénierie
@@ -105,14 +106,14 @@ Entiers en little-endian sauf mention contraire.
 - Clutch : joueur resté seul dans son équipe ; taille = nombre d'ennemis en vie à ce moment ; gagné si l'équipe gagne le round.
 - Situations : chaque état NvM compté une fois par round, avec le nombre de rounds gagnés.
 - KOST : rounds où le joueur a fait un kill (ennemi), posé ou désamorcé le défuseur, survécu ou vu sa mort tradée. `Survived` = rounds vivant à la fin.
+- Ventilations : `BySide`, `ByMap`, `ByOperator` (joueurs) et `BySide`, `ByMap` (équipes). Calculées par différence des totaux avant et après chaque round, donc toujours cohérentes avec eux : un nouveau compteur doit être ajouté à `Line`/`TeamLine` pour apparaître dans les ventilations. L'opérateur vient de l'en-tête ; il manque pour l'équipe absente d'un en-tête à une seule équipe (ces rounds sont exclus de `ByOperator`).
 - Pièces : kills comptés dans la pièce du tueur, morts dans celle de la victime, séparés par côté (`Report.Rooms`), et par joueur (`KillRooms`, `DeathRooms`).
 - Sites : par équipe, map et site, rounds joués et gagnés en attaque et en défense, et rounds d'attaque avec pose (et gagnés). Les rounds sans site connu ne comptent pas dans cette ventilation.
 - Les joueurs sont identifiés par leur profile id quand il existe, par leur nom sinon. Les rounds sans vainqueur connu sont écartés et comptés dans `SkippedRounds`.
 
 ## Prochaines étapes
 
-1. Ventiler les stats existantes par côté, map et opérateur.
-2. Récupérer des replays de ranked sur le PC de l'utilisateur pour vérifier `matchtype`, les profile ids et les différences avec les fichiers de tournoi.
-3. Ensuite le serveur, l'interface web et l'app Windows.
+1. Récupérer des replays de ranked sur le PC de l'utilisateur pour vérifier `matchtype`, les profile ids et les différences avec les fichiers de tournoi.
+2. Ensuite le serveur, l'interface web et l'app Windows.
 
 Toujours afficher la taille de l'échantillon à côté d'un pourcentage : les clutches et les situations rares reposent sur peu de cas.

@@ -22,6 +22,7 @@ Le parser est écrit de zéro en Go. Il est validé sur des replays de la saison
 - Sites de bombe : taux de victoire en attaque et en défense, et taux de pose, par site.
 - Poses et désamorçages par joueur, avec les rounds gagnés après pose.
 - Pièces : kills et morts par pièce et par côté, et par joueur.
+- Ventilation des stats des joueurs par côté, map et opérateur, et des équipes par côté et map.
 
 ## Utilisation
 
@@ -32,6 +33,7 @@ go run ./cmd/r6rec ls <dossier>        # liste les rounds trouvés
 go run ./cmd/r6rec matches <dossier>   # matchs reconstitués, round par round
 go run ./cmd/r6rec stats <dossier>     # statistiques (ajouter -json pour la sortie JSON)
 go run ./cmd/r6rec rooms <dossier>     # kills et morts par pièce
+go run ./cmd/r6rec split side <dossier>  # stats par côté (aussi : map, operator)
 go run ./cmd/r6rec round <fichier.rec> # événements d'un round en JSON
 ```
 

@@ -77,6 +77,13 @@ type Player struct {
 	// and deaths by the room the player died in.
 	KillRooms  map[string]int `json:"killRooms"`
 	DeathRooms map[string]int `json:"deathRooms"`
+
+	// BySide, ByMap and ByOperator split the player's rounds by the side
+	// played ("attack" or "defense"), the map and the operator picked.
+	// Rounds whose operator is unknown are left out of ByOperator.
+	BySide     map[string]*Line `json:"bySide"`
+	ByMap      map[string]*Line `json:"byMap"`
+	ByOperator map[string]*Line `json:"byOperator"`
 }
 
 // Situation is a count of players alive on each side.
@@ -104,6 +111,10 @@ type Team struct {
 
 	// Sites breaks rounds down by bomb site, ordered by map then site.
 	Sites []*Site `json:"sites"`
+
+	// BySide and ByMap split the team's rounds by side and by map.
+	BySide map[string]*TeamLine `json:"bySide"`
+	ByMap  map[string]*TeamLine `json:"byMap"`
 }
 
 // Site holds a team's rounds on one bomb site.
@@ -202,7 +213,8 @@ type collector struct {
 func (c *collector) team(name string) *Team {
 	t := c.teams[name]
 	if t == nil {
-		t = &Team{Name: name, Situations: map[Situation]*Record{}}
+		t = &Team{Name: name, Situations: map[Situation]*Record{},
+			BySide: map[string]*TeamLine{}, ByMap: map[string]*TeamLine{}}
 		c.teams[name] = t
 		if c.teamOrder == nil {
 			c.teamOrder = map[string]int{}
@@ -223,7 +235,8 @@ func (c *collector) player(p rec.Player, team string) *Player {
 	pl := c.players[key]
 	if pl == nil {
 		pl = &Player{Name: p.Name, Team: team, Clutches: map[int]*Record{},
-			KillRooms: map[string]int{}, DeathRooms: map[string]int{}}
+			KillRooms: map[string]int{}, DeathRooms: map[string]int{},
+			BySide: map[string]*Line{}, ByMap: map[string]*Line{}, ByOperator: map[string]*Line{}}
 		c.players[key] = pl
 		c.rep.Players = append(c.rep.Players, pl)
 	}
@@ -249,9 +262,154 @@ func (t *Team) site(mapName, site string) *Site {
 	return s
 }
 
-// round adds one round. teams are the two team names by index, roster the
-// ten players, r the decoded round, whose winner is known.
+// round adds one round to the totals and to the breakdowns.
 func (c *collector) round(mapName string, teams [2]string, roster []rec.Player, r *rec.Round) {
+	// Totals are taken before and after the round; the difference is what
+	// the round adds to the breakdowns.
+	attacker := -1
+	for _, p := range roster {
+		if p.Side == rec.Attack && (p.Team == 0 || p.Team == 1) {
+			attacker = p.Team
+			break
+		}
+	}
+	type before struct {
+		pl   *Player
+		line Line
+		side string
+		op   string
+	}
+	var players []before
+	for _, p := range roster {
+		if p.Team != 0 && p.Team != 1 {
+			continue
+		}
+		pl := c.player(p, teams[p.Team])
+		players = append(players, before{pl, pl.line(), sideName(p.Team, attacker), p.Operator})
+	}
+	var tb [2]TeamLine
+	for t := range teams {
+		tb[t] = c.team(teams[t]).line()
+	}
+
+	c.roundTotals(mapName, teams, roster, r)
+
+	for _, b := range players {
+		d := b.pl.line().minus(b.line)
+		if r.Winner >= 0 && teams[r.Winner] == b.pl.Team {
+			d.Won = 1
+		}
+		addLine(b.pl.BySide, b.side, d)
+		addLine(b.pl.ByMap, mapName, d)
+		if b.op != "" {
+			addLine(b.pl.ByOperator, b.op, d)
+		}
+	}
+	for t := range teams {
+		tm := c.team(teams[t])
+		d := tm.line().minus(tb[t])
+		addTeamLine(tm.BySide, sideName(t, attacker), d)
+		addTeamLine(tm.ByMap, mapName, d)
+	}
+}
+
+// sideName names the side a team played, or "unknown".
+func sideName(team, attacker int) string {
+	switch {
+	case attacker < 0:
+		return "unknown"
+	case team == attacker:
+		return string(rec.Attack)
+	}
+	return string(rec.Defense)
+}
+
+// Line is a player's totals over a subset of rounds.
+type Line struct {
+	Rounds        int `json:"rounds"`
+	Won           int `json:"won"`
+	Kills         int `json:"kills"`
+	Deaths        int `json:"deaths"`
+	Assists       int `json:"assists"`
+	Headshots     int `json:"headshots"`
+	KOST          int `json:"kost"`
+	Survived      int `json:"survived"`
+	OpeningKills  int `json:"openingKills"`
+	OpeningDeaths int `json:"openingDeaths"`
+	Plants        int `json:"plants"`
+	Defuses       int `json:"defuses"`
+}
+
+func (p *Player) line() Line {
+	return Line{
+		Rounds: p.Rounds, Kills: p.Kills, Deaths: p.Deaths, Assists: p.Assists,
+		Headshots: p.Headshots, KOST: p.KOST, Survived: p.Survived,
+		OpeningKills: p.OpeningKills.Count, OpeningDeaths: p.OpeningDeaths.Count,
+		Plants: p.Plants.Count, Defuses: p.Defuses,
+	}
+}
+
+func (a Line) minus(b Line) Line {
+	return Line{
+		Rounds: a.Rounds - b.Rounds, Won: a.Won - b.Won, Kills: a.Kills - b.Kills,
+		Deaths: a.Deaths - b.Deaths, Assists: a.Assists - b.Assists,
+		Headshots: a.Headshots - b.Headshots, KOST: a.KOST - b.KOST,
+		Survived: a.Survived - b.Survived, OpeningKills: a.OpeningKills - b.OpeningKills,
+		OpeningDeaths: a.OpeningDeaths - b.OpeningDeaths, Plants: a.Plants - b.Plants,
+		Defuses: a.Defuses - b.Defuses,
+	}
+}
+
+func addLine(m map[string]*Line, key string, d Line) {
+	l := m[key]
+	if l == nil {
+		l = &Line{}
+		m[key] = l
+	}
+	*l = Line{
+		Rounds: l.Rounds + d.Rounds, Won: l.Won + d.Won, Kills: l.Kills + d.Kills,
+		Deaths: l.Deaths + d.Deaths, Assists: l.Assists + d.Assists,
+		Headshots: l.Headshots + d.Headshots, KOST: l.KOST + d.KOST,
+		Survived: l.Survived + d.Survived, OpeningKills: l.OpeningKills + d.OpeningKills,
+		OpeningDeaths: l.OpeningDeaths + d.OpeningDeaths, Plants: l.Plants + d.Plants,
+		Defuses: l.Defuses + d.Defuses,
+	}
+}
+
+// TeamLine is a team's totals over a subset of rounds.
+type TeamLine struct {
+	Rounds        Record `json:"rounds"`
+	OpeningKills  Record `json:"openingKills"`
+	OpeningDeaths Record `json:"openingDeaths"`
+	Deaths        int    `json:"deaths"`
+	TradedDeaths  int    `json:"tradedDeaths"`
+}
+
+func (t *Team) line() TeamLine {
+	return TeamLine{t.Rounds, t.OpeningKills, t.OpeningDeaths, t.Deaths, t.TradedDeaths}
+}
+
+func (a TeamLine) minus(b TeamLine) TeamLine {
+	sub := func(x, y Record) Record { return Record{x.Count - y.Count, x.Won - y.Won} }
+	return TeamLine{sub(a.Rounds, b.Rounds), sub(a.OpeningKills, b.OpeningKills),
+		sub(a.OpeningDeaths, b.OpeningDeaths), a.Deaths - b.Deaths, a.TradedDeaths - b.TradedDeaths}
+}
+
+func addTeamLine(m map[string]*TeamLine, key string, d TeamLine) {
+	l := m[key]
+	if l == nil {
+		l = &TeamLine{}
+		m[key] = l
+	}
+	add := func(x, y Record) Record { return Record{x.Count + y.Count, x.Won + y.Won} }
+	*l = TeamLine{add(l.Rounds, d.Rounds), add(l.OpeningKills, d.OpeningKills),
+		add(l.OpeningDeaths, d.OpeningDeaths), l.Deaths + d.Deaths, l.TradedDeaths + d.TradedDeaths}
+}
+
+// roundTotals adds one round to the overall totals. teams are the two team
+// names by index, roster the ten players, r the decoded round, whose winner
+// is known.
+func (c *collector) roundTotals(mapName string, teams [2]string, roster []rec.Player, r *rec.Round) {
 	team := [2]*Team{c.team(teams[0]), c.team(teams[1])}
 	byName := map[string]*Player{}
 	alive := [2]map[string]bool{{}, {}}

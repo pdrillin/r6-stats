@@ -323,3 +323,72 @@ func TestAssists(t *testing.T) {
 		}
 	}
 }
+
+func TestBreakdowns(t *testing.T) {
+	// Round 1: A attacks, a1 plays Ash and kills b1. Round 2: sides
+	// swapped, a1 plays Mute and dies. Round 3 is on another map.
+	swap := func(ps []rec.Player, op string) []rec.Player {
+		out := append([]rec.Player(nil), ps...)
+		for i := range out {
+			if out[i].Side == rec.Attack {
+				out[i].Side = rec.Defense
+			} else {
+				out[i].Side = rec.Attack
+			}
+			if out[i].Name == "a1" {
+				out[i].Operator = op
+			}
+		}
+		return out
+	}
+	r1 := roster()
+	r1[0].Operator = "ASH"
+	chalet := &match.Match{Map: "Chalet", Teams: [2]string{"A", "B"}, Rounds: []match.RoundFile{
+		{Header: rec.Header{RoundNumber: 0, Players: r1}, Round: &rec.Round{Winner: 0, Kills: []rec.Kill{kill(10, "a1", "b1")}}},
+		{Header: rec.Header{RoundNumber: 1, Players: swap(roster(), "MUTE")}, Round: &rec.Round{Winner: 1, Kills: []rec.Kill{kill(10, "b1", "a1")}}},
+	}}
+	bank := &match.Match{Map: "Bank", Teams: [2]string{"A", "B"}, Rounds: []match.RoundFile{
+		{Header: rec.Header{RoundNumber: 0, Players: r1}, Round: &rec.Round{Winner: 0}},
+	}}
+	r := Compute(Options{}, chalet, bank)
+	a1 := player(t, r, "a1")
+
+	want := map[string]Line{
+		"attack":  {Rounds: 2, Won: 2, Kills: 1, KOST: 2, Survived: 2, OpeningKills: 1},
+		"defense": {Rounds: 1, Won: 0, Deaths: 1, OpeningDeaths: 1},
+	}
+	for side, w := range want {
+		if got := a1.BySide[side]; got == nil || *got != w {
+			t.Errorf("a1 on %s = %+v, want %+v", side, got, w)
+		}
+	}
+	if got := a1.ByMap["Chalet"]; got == nil || got.Rounds != 2 || got.Won != 1 || got.Kills != 1 || got.Deaths != 1 {
+		t.Errorf("a1 on Chalet = %+v", got)
+	}
+	if got := a1.ByMap["Bank"]; got == nil || got.Rounds != 1 || got.Won != 1 {
+		t.Errorf("a1 on Bank = %+v", got)
+	}
+	if got := a1.ByOperator["ASH"]; got == nil || got.Rounds != 2 || got.Kills != 1 {
+		t.Errorf("a1 on Ash = %+v", got)
+	}
+	if got := a1.ByOperator["MUTE"]; got == nil || got.Rounds != 1 || got.Deaths != 1 {
+		t.Errorf("a1 on Mute = %+v", got)
+	}
+	if len(a1.ByOperator) != 2 {
+		t.Errorf("a1 operators = %v, want Ash and Mute only", a1.ByOperator)
+	}
+	if b1 := player(t, r, "b1"); len(b1.ByOperator) != 0 {
+		t.Errorf("b1 has no known operator, got %v", b1.ByOperator)
+	}
+
+	a, b := r.Teams[0], r.Teams[1]
+	if got := a.BySide["attack"]; got == nil || got.Rounds != (Record{2, 2}) || got.OpeningKills != (Record{1, 1}) {
+		t.Errorf("A on attack = %+v", got)
+	}
+	if got := b.BySide["attack"]; got == nil || got.Rounds != (Record{1, 1}) || got.OpeningKills != (Record{1, 1}) {
+		t.Errorf("B on attack = %+v", got)
+	}
+	if got := a.ByMap["Bank"]; got == nil || got.Rounds != (Record{1, 1}) {
+		t.Errorf("A on Bank = %+v", got)
+	}
+}

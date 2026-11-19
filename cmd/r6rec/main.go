@@ -25,6 +25,8 @@ const usage = `usage:
                                 conversion over every match under the folders
   r6rec rooms [-n N] <dir>...   kills and deaths by room, N busiest rooms per map
                                 (default 15, 0 for all)
+  r6rec split side|map|operator <dir>...
+                                player and team stats split by side, map or operator
   r6rec header [-raw] <file>    header of one round as JSON (-raw: every property)
   r6rec round <file>            events of one round as JSON
   r6rec dump <file> <out>       write the decompressed body to <out>
@@ -45,6 +47,8 @@ func main() {
 		err = statistics(os.Args[2:])
 	case "rooms":
 		err = rooms(os.Args[2:])
+	case "split":
+		err = split(os.Args[2:])
 	case "header":
 		err = header(os.Args[2:])
 	case "round":
@@ -419,6 +423,97 @@ func rooms(args []string) error {
 		}
 		shown++
 		fmt.Fprintf(w, "  %s\t%d\t%d\t%d\t%d\n", r.Room, r.Attack.Kills, r.Attack.Deaths, r.Defense.Kills, r.Defense.Deaths)
+	}
+	return w.Flush()
+}
+
+func split(args []string) error {
+	if len(args) < 2 {
+		fmt.Fprint(os.Stderr, usage)
+		os.Exit(2)
+	}
+	by := args[0]
+	ms, err := load(args[1:])
+	if err != nil {
+		return err
+	}
+	rep := stats.Compute(stats.Options{}, ms...)
+
+	playerLines := func(p *stats.Player) map[string]*stats.Line {
+		switch by {
+		case "side":
+			return p.BySide
+		case "map":
+			return p.ByMap
+		case "operator":
+			return p.ByOperator
+		}
+		return nil
+	}
+	teamLines := func(t *stats.Team) map[string]*stats.TeamLine {
+		switch by {
+		case "side":
+			return t.BySide
+		case "map":
+			return t.ByMap
+		}
+		return nil
+	}
+	if rep.Players != nil && len(rep.Players) > 0 && playerLines(rep.Players[0]) == nil {
+		return fmt.Errorf("split by side, map or operator, not %q", by)
+	}
+
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	fmt.Fprintf(w, "PLAYER\t%s\tRNDS\tWON\tK\tD\tA\tKOST\tSURVIVED\tOPENING K-D\tPLANTS\tDEFUSES\n", strings.ToUpper(by))
+	for _, p := range rep.Players {
+		lines := playerLines(p)
+		keys := make([]string, 0, len(lines))
+		for k := range lines {
+			keys = append(keys, k)
+		}
+		// Most played first.
+		sort.Slice(keys, func(i, j int) bool {
+			if lines[keys[i]].Rounds != lines[keys[j]].Rounds {
+				return lines[keys[i]].Rounds > lines[keys[j]].Rounds
+			}
+			return keys[i] < keys[j]
+		})
+		for i, k := range keys {
+			l := lines[k]
+			name := ""
+			if i == 0 {
+				name = p.Name + " (" + p.Team + ")"
+			}
+			fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%d\t%d\t%d\t%s\t%s\t%d-%d\t%d\t%d\n",
+				name, k, l.Rounds, ratio(l.Won, l.Rounds), l.Kills, l.Deaths, l.Assists,
+				ratio(l.KOST, l.Rounds), ratio(l.Survived, l.Rounds),
+				l.OpeningKills, l.OpeningDeaths, l.Plants, l.Defuses)
+		}
+	}
+	if err := w.Flush(); err != nil {
+		return err
+	}
+
+	if by == "operator" {
+		return nil
+	}
+	fmt.Fprintf(w, "\nTEAM\t%s\tROUNDS WON\tFIRST KILL FOR\tFIRST KILL AGAINST\tDEATHS TRADED\n", strings.ToUpper(by))
+	for _, t := range rep.Teams {
+		lines := teamLines(t)
+		keys := make([]string, 0, len(lines))
+		for k := range lines {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for i, k := range keys {
+			l := lines[k]
+			name := ""
+			if i == 0 {
+				name = t.Name
+			}
+			fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\n", name, k,
+				record(l.Rounds), record(l.OpeningKills), record(l.OpeningDeaths), ratio(l.TradedDeaths, l.Deaths))
+		}
 	}
 	return w.Flush()
 }
