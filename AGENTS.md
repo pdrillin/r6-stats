@@ -8,11 +8,33 @@ Statistiques de match avancées pour Rainbow Six Siege, calculées à partir des
 
 Produit prévu, pas encore construit :
 
-- **App Windows** (les joueurs sont sous Windows) : surveille le dossier `MatchReplay` du jeu et envoie les nouveaux matchs avant que le jeu ne les supprime. Prévue avec Wails (backend Go + interface web dans WebView2).
+- **App Windows** (les joueurs sont sous Windows) : surveille le dossier `MatchReplay` du jeu et conserve les nouveaux matchs avant que le jeu ne les supprime ; d'abord en local avec les stats affichées sur place, puis en envoyant les matchs au serveur. Prévue avec Wails (backend Go + interface web dans WebView2).
 - **Serveur** : reçoit les `.rec` bruts, les parse, stocke les stats (Postgres) et conserve les fichiers bruts (stockage objet) pour pouvoir les re-parser quand le parser s'améliore.
 - **Interface web** : SPA React + TypeScript + Vite, partagée entre le site et l'app Windows.
 
 Le parsing se fait côté serveur : un changement de saison ne demande qu'une mise à jour du serveur. Aujourd'hui existent le parser Go, le regroupement en matchs, les stats, un outil en ligne de commande, une API JSON en lecture seule (`r6rec serve`, tout en mémoire, pas de base) et une première version de l'interface web qui la consomme.
+
+## Utilisations visées
+
+Trois utilisations, un seul moteur (parser, regroupement en matchs, stats). Seuls changent l'ensemble des matchs pris en compte et qui peut les voir.
+
+| | Ligue | Équipe | Tracker public |
+|---|---|---|---|
+| Matchs | ceux de la compétition | scrims et officiels de l'équipe | tous les matchs envoyés où le joueur apparaît |
+| Envoyés par | les organisateurs | un membre de l'équipe | n'importe qui |
+| Visibles par | tout le monde | l'équipe | tout le monde |
+| Vue principale | classements, leaders par stat, pages équipes | « nous » contre l'adversaire : maps, sites, ouvertures, revue des rounds, préparation contre un adversaire | profil d'un joueur et son évolution |
+
+Modèle prévu :
+
+- **Espace** : un ensemble de matchs, des membres, une visibilité (privé ou public). Une ligue est un espace public à plusieurs équipes ; une équipe est un espace privé qui sait laquelle des deux équipes est « nous » (à reconnaître par ses joueurs plutôt que par son nom). Les stats d'un espace sont `stats.Compute` sur ses matchs, comme le filtre par map aujourd'hui ; l'interface actuelle sert telle quelle dans un espace.
+- **Joueur** : identifié par son profile id Ubisoft d'un espace à l'autre. La page tracker = ses stats sur les matchs publics où il apparaît.
+
+Ordre retenu :
+
+1. **Équipe d'abord.** C'est le format validé (parties privées, rehosts), c'est là que les stats avancées apportent le plus, l'infrastructure est minime, et l'utilisateur et son équipe sont les premiers utilisateurs.
+2. **Ligue ensuite** : même format de replay ; il faut surtout des vues de classement et l'accès public en lecture.
+3. **Tracker public en dernier** : couverture limitée aux matchs envoyés (R6 Tracker a toutes les parties via Ubisoft), format de ranked non vérifié, question RGPD (stats publiques de joueurs qui n'ont rien envoyé), coût de stockage.
 
 ## Travailler avec l'utilisateur
 
@@ -138,8 +160,12 @@ Entiers en little-endian sauf mention contraire.
 
 ## Prochaines étapes
 
-1. Récupérer des replays de ranked sur le PC de l'utilisateur pour vérifier `matchtype`, les profile ids et les différences avec les fichiers de tournoi.
-2. Interface web : la compléter selon les retours (filtre par période).
-3. Serveur (envoi des `.rec`, Postgres, stockage objet), puis l'app Windows qui réutilise l'interface.
+1. **Replays de l'équipe de l'utilisateur** (scrims, officiels, plus quelques ranked pour plus tard). Vérifier les noms d'équipe dans les parties privées (vrais noms ou « Team 1 »), les profile ids (remplis ou à zéro), `matchtype`, et comment reconnaître « notre » équipe.
+2. **App Windows en local** (Wails), sans serveur : lit le dossier `MatchReplay`, conserve les replays avant que le jeu ne les supprime, embarque l'API (`api/`) et l'interface construite (`web/dist`).
+3. **Vues « équipe »** : notion de « nous » contre l'adversaire, fiche de préparation contre un adversaire, accueil centré sur l'équipe (la page Joueurs actuelle, un tableau de tous les joueurs, ne tiendra pas avec des replays de ranked et deviendra un onglet d'analyse avec un minimum de rounds).
+4. **Serveur partagé** quand plusieurs membres mettent leurs replays en commun : espaces, comptes, envoi des `.rec`, Postgres, stockage objet.
+5. **Ligue**, puis éventuellement le tracker public.
+
+Le filtre par période attend d'avoir plusieurs semaines de parties.
 
 Toujours afficher la taille de l'échantillon à côté d'un pourcentage : les clutches et les situations rares reposent sur peu de cas.
