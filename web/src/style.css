@@ -1514,3 +1514,183 @@ th:not(.text) .th-inner {
   margin: 0;
   font-variant-numeric: tabular-nums;
 }
+
+/* Match page */
+.match-head {
+  margin-bottom: 1.25rem;
+}
+.match-title {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.match-title h1 {
+  margin: 0;
+}
+.match-score {
+  display: flex;
+  align-items: baseline;
+  gap: 0.9rem;
+  margin: 0.35rem 0 0.2rem;
+  font-size: 1.15rem;
+}
+.team-score {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 0.6rem;
+  color: var(--muted);
+}
+.team-score.right {
+  flex-direction: row-reverse;
+}
+.team-score a {
+  color: inherit;
+  font-weight: 600;
+}
+.team-score b {
+  font-size: 2rem;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+  color: var(--muted);
+}
+.team-score.won,
+.team-score.won b {
+  color: var(--text);
+}
+.match-dash {
+  color: var(--muted);
+  font-size: 1.5rem;
+}
+.tablist {
+  display: flex;
+  gap: 0.25rem;
+  border-bottom: 1px solid var(--border);
+  margin: 0.5rem 0 1rem;
+  overflow-x: auto;
+}
+.tablist [role="tab"] {
+  font: inherit;
+  color: var(--muted);
+  background: none;
+  border: none;
+  border-bottom: 3px solid transparent;
+  padding: 0.6rem 0.9rem;
+  margin-bottom: -1px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+.tablist [role="tab"]:hover {
+  color: var(--text);
+}
+.tablist [role="tab"].active {
+  color: var(--text);
+  font-weight: 600;
+  border-bottom-color: var(--accent);
+}
+.tablist [role="tab"]:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.tabpanel > h2:first-child {
+  margin-top: 0.5rem;
+}
+.tab-tools {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 0.5rem 1rem;
+  margin-bottom: 0.6rem;
+}
+.progress-block {
+  display: grid;
+  gap: 0.4rem;
+}
+button.dot {
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+button.dot:hover {
+  filter: brightness(1.15);
+}
+button.dot:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+.swatch.t1-swatch {
+  background: var(--t1);
+}
+.compare-table th[scope="row"] {
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 500;
+  background: none;
+  position: static;
+}
+.compare-table td,
+.compare-table th {
+  white-space: normal;
+}
+.compare-table .sample {
+  color: var(--muted);
+  font-size: 0.85em;
+}
+.menu {
+  position: relative;
+}
+.menu-trigger {
+  font: inherit;
+  font-size: 1.2rem;
+  line-height: 1;
+  width: 2.2rem;
+  height: 2.2rem;
+  color: var(--muted);
+  background: none;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  cursor: pointer;
+}
+.menu-trigger:hover,
+.menu-trigger[aria-expanded="true"] {
+  color: var(--text);
+  border-color: var(--muted);
+}
+.menu-trigger:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.menu-items {
+  position: absolute;
+  top: calc(100% + 4px);
+  left: 0;
+  z-index: 5;
+  min-width: 13rem;
+  padding: 0.3rem;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
+}
+.menu-items button {
+  display: block;
+  width: 100%;
+  text-align: left;
+  font: inherit;
+  color: var(--text);
+  background: none;
+  border: none;
+  border-radius: 6px;
+  padding: 0.5rem 0.65rem;
+  cursor: pointer;
+}
+.menu-items button:hover,
+.menu-items button:focus-visible {
+  background: var(--panel);
+  outline: none;
+}
+.menu-items .danger-item {
+  color: var(--neg);
+}
