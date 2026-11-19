@@ -6,7 +6,7 @@ Le parser est écrit de zéro en Go. Il est validé sur des replays de la saison
 
 ## Aperçu
 
-Les captures montrent la grande finale FURIA – FaZe de l'EWC 2026, vue depuis l'espace de FaZe.
+Les captures utilisent des données réelles, tirées de compétitions professionnelles : les replays de l'Esports World Cup 2026 (DarkZero – Geekay, et la grande finale FURIA – FaZe), dont les résultats sont publics. L'accueil est vu depuis l'espace de FaZe. Les fichiers de replay eux-mêmes ne sont pas fournis avec le dépôt.
 
 **Accueil d'une équipe** : bilan, chiffres clés, constats en clair (toujours avec le nombre de rounds derrière), derniers matchs.
 
