@@ -8,9 +8,19 @@
   --accent: #f5b400;
   --pos: #3fb950;
   --neg: #f85149;
-  --t0: #ff9f43;
-  --t1: #4ea1ff;
+  /* Series colors, validated for CVD and contrast against --panel. */
+  --blue: #3987e5;
+  --orange: #d95926;
+  --red: #e66767;
+  --grid: #2c2c2a;
+  --axis: #464a55;
+  --t0: var(--blue);
+  --t1: var(--orange);
   --t-1: #6b7280;
+  --attack: var(--orange);
+  --defense: var(--blue);
+  --kills: var(--blue);
+  --deaths: var(--red);
   color-scheme: dark;
   font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   font-size: 14px;
@@ -28,8 +38,11 @@
     --accent: #b77f00;
     --pos: #1a7f37;
     --neg: #cf222e;
-    --t0: #d96b00;
-    --t1: #1f6feb;
+    --blue: #2a78d6;
+    --orange: #eb6834;
+    --red: #e34948;
+    --grid: #e1e0d9;
+    --axis: #c3c2b7;
     color-scheme: light;
   }
 }
@@ -122,11 +135,21 @@ main {
 .neg {
   color: var(--neg);
 }
-.t0 {
-  color: var(--t0);
+/* Team identity: a swatch before the name, the text keeps its ink. */
+.tk0::before,
+.tk1::before,
+.swatch {
+  content: "";
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 2px;
+  margin-right: 0.35rem;
+  vertical-align: 0.05em;
+  background: var(--t0);
 }
-.t1 {
-  color: var(--t1);
+.tk1::before {
+  background: var(--t1);
 }
 
 /* Tables */
@@ -362,7 +385,7 @@ h2 .tabs {
 .tag {
   font-weight: 600;
 }
-.tag.t-1 {
+.tag.tk-1 {
   color: var(--muted);
 }
 .round-body {
@@ -443,4 +466,128 @@ h2 .tabs {
   font-size: 1rem;
   font-weight: 400;
   color: var(--muted);
+}
+
+/* Charts */
+.chart {
+  margin: 0;
+  padding: 0.75rem 1rem 0.5rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.chart-plot {
+  position: relative;
+  width: 100%;
+}
+.chart svg {
+  display: block;
+  overflow: visible;
+}
+.legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1.1rem;
+  font-size: 0.85rem;
+  color: var(--muted);
+  margin-bottom: 0.5rem;
+}
+.legend-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.chart .grid {
+  stroke: var(--grid);
+  stroke-width: 1;
+}
+.chart .axis {
+  stroke: var(--axis);
+  stroke-width: 1;
+}
+.chart .lane {
+  stroke: var(--axis);
+  stroke-width: 2;
+  stroke-linecap: round;
+}
+.chart .tick {
+  font-size: 11px;
+  fill: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.chart .label {
+  font-size: 12px;
+  fill: var(--text);
+}
+.chart .value {
+  font-size: 12px;
+  fill: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.chart .plant {
+  fill: var(--text);
+}
+.chart .kill-dot {
+  stroke: var(--panel);
+  stroke-width: 2;
+  paint-order: stroke;
+}
+.mark-group {
+  cursor: default;
+  outline: none;
+}
+.mark-group:hover path,
+.mark-group:focus-visible path,
+.mark-group:hover rect:not([fill="transparent"]),
+.mark-group:focus-visible rect:not([fill="transparent"]) {
+  filter: brightness(1.15);
+}
+.mark-group:hover circle:not([fill="transparent"]),
+.mark-group:focus-visible circle:not([fill="transparent"]) {
+  r: 7px;
+}
+.mark-group:focus-visible rect[fill="transparent"] {
+  stroke: var(--accent);
+  stroke-width: 1;
+}
+.tooltip {
+  position: absolute;
+  z-index: 2;
+  pointer-events: none;
+  min-width: 9rem;
+  max-width: 20rem;
+  padding: 0.45rem 0.65rem;
+  font-size: 0.85rem;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
+}
+.tip-title {
+  font-size: 0.78rem;
+  color: var(--muted);
+  margin-bottom: 0.2rem;
+}
+.tip-row {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+.tip-key {
+  width: 10px;
+  height: 2px;
+  border-radius: 1px;
+}
+.table-view {
+  margin-top: 0.5rem;
+}
+.table-view summary {
+  cursor: pointer;
+  color: var(--muted);
+  font-size: 0.85rem;
+  margin-bottom: 0.5rem;
+}
+.chart-pair {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
 }

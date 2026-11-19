@@ -212,6 +212,27 @@ func TestSituationsJSON(t *testing.T) {
 	}
 }
 
+func TestTiming(t *testing.T) {
+	prep := kill(0, "a2", "b2")
+	prep.Phase, prep.ElapsedMs = rec.PhasePrep, -5000
+	late := kill(200, "b3", "a3") // after a plant
+	r := compute(&rec.Round{Winner: 0, Kills: []rec.Kill{prep, kill(10, "a1", "b1"), kill(45, "a1", "b4"), late}})
+	for _, c := range []struct {
+		name          string
+		kills, deaths []int
+	}{
+		{"a1", []int{0, 1, 1, 0, 0, 0, 0, 0}, []int{0, 0, 0, 0, 0, 0, 0, 0}},
+		{"a2", []int{1, 0, 0, 0, 0, 0, 0, 0}, []int{0, 0, 0, 0, 0, 0, 0, 0}},
+		{"a3", []int{0, 0, 0, 0, 0, 0, 0, 0}, []int{0, 0, 0, 0, 0, 0, 0, 1}},
+		{"b4", []int{0, 0, 0, 0, 0, 0, 0, 0}, []int{0, 0, 1, 0, 0, 0, 0, 0}},
+	} {
+		p := player(t, r, c.name)
+		if !reflect.DeepEqual(p.KillTiming, c.kills) || !reflect.DeepEqual(p.DeathTiming, c.deaths) {
+			t.Errorf("%s timing = %v / %v, want %v / %v", c.name, p.KillTiming, p.DeathTiming, c.kills, c.deaths)
+		}
+	}
+}
+
 func TestUnknownWinnerSkipped(t *testing.T) {
 	r := compute(&rec.Round{Winner: -1, Kills: []rec.Kill{kill(10, "a1", "b1")}})
 	if r.Rounds != 0 || r.SkippedRounds != 1 || len(r.Players) != 0 {

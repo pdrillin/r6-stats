@@ -23,6 +23,7 @@ Le parser est écrit de zéro en Go. Il est validé sur des replays de la saison
 - Poses et désamorçages par joueur, avec les rounds gagnés après pose.
 - Pièces : kills et morts par pièce et par côté, et par joueur.
 - Ventilation des stats des joueurs par côté, map et opérateur, et des équipes par côté et map.
+- Moment du round : kills et morts par tranche de 30 secondes.
 
 ## Utilisation
 

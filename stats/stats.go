@@ -77,6 +77,11 @@ type Player struct {
 	KOST     int `json:"kost"`
 	Survived int `json:"survived"`
 
+	// KillTiming and DeathTiming count kills and deaths by moment of the
+	// round, in TimingBuckets buckets (see TimingBucket).
+	KillTiming  []int `json:"killTiming"`
+	DeathTiming []int `json:"deathTiming"`
+
 	// KillRooms and DeathRooms count kills by the room the player was in,
 	// and deaths by the room the player died in.
 	KillRooms  map[string]int `json:"killRooms"`
@@ -152,6 +157,23 @@ func (t *Team) MarshalJSON() ([]byte, error) {
 		*plain
 		Situations []SituationRecord `json:"situations"`
 	}{(*plain)(t), t.SituationList()})
+}
+
+// Timing buckets split a round by time: bucket 0 is the preparation phase,
+// bucket i from 1 covers [(i-1)*TimingBucketMs, i*TimingBucketMs) of the
+// action phase, and the last bucket everything from 3:00 on, which only a
+// plant can reach.
+const (
+	TimingBucketMs = 30000
+	TimingBuckets  = 8
+)
+
+// TimingBucket returns the bucket of an event.
+func TimingBucket(c rec.Clock) int {
+	if c.Phase == rec.PhasePrep || c.ElapsedMs < 0 {
+		return 0
+	}
+	return min(1+c.ElapsedMs/TimingBucketMs, TimingBuckets-1)
 }
 
 // Site holds a team's rounds on one bomb site.
@@ -272,6 +294,7 @@ func (c *collector) player(p rec.Player, team string) *Player {
 	pl := c.players[key]
 	if pl == nil {
 		pl = &Player{ID: key, Name: p.Name, Team: team, Clutches: map[int]*Record{},
+			KillTiming: make([]int, TimingBuckets), DeathTiming: make([]int, TimingBuckets),
 			KillRooms: map[string]int{}, DeathRooms: map[string]int{},
 			BySide: map[string]*Line{}, ByMap: map[string]*Line{}, ByOperator: map[string]*Line{}}
 		c.players[key] = pl
@@ -511,6 +534,7 @@ func (c *collector) roundTotals(mapName string, teams [2]string, roster []rec.Pl
 
 		if victim != nil {
 			victim.Deaths++
+			victim.DeathTiming[TimingBucket(k.Clock)]++
 		}
 		team[vt].Deaths++
 		if enemy(k) {
@@ -518,6 +542,7 @@ func (c *collector) roundTotals(mapName string, teams [2]string, roster []rec.Pl
 		}
 		if enemy(k) && killer != nil {
 			killer.Kills++
+			killer.KillTiming[TimingBucket(k.Clock)]++
 			if k.Headshot {
 				killer.Headshots++
 			}

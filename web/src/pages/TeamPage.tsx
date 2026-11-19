@@ -1,6 +1,7 @@
 import { useParams } from "react-router-dom";
 import { useApi, type Overview, type Team } from "../api";
 import { TeamLineTable } from "../components/Breakdown";
+import { TimingChart } from "../components/charts";
 import { Loading } from "../components/Loading";
 import { PlayerTable } from "../components/PlayerTable";
 import { Table } from "../components/Table";
@@ -21,6 +22,9 @@ export function TeamPage() {
 }
 
 function TeamView({ t, o }: { t: Team; o: Overview }) {
+  const players = o.stats.players.filter((p) => p.team === t.name);
+  const sum = (get: (p: (typeof players)[number]) => number[]) =>
+    players.reduce<number[]>((acc, p) => get(p).map((v, i) => v + (acc[i] ?? 0)), []);
   return (
     <>
       <h1>
@@ -28,6 +32,10 @@ function TeamView({ t, o }: { t: Team; o: Overview }) {
           <RecRatio r={t.rounds} /> rounds gagnés
         </span>
       </h1>
+
+      <h2>Moment du round</h2>
+      <p className="muted">Kills et morts des joueurs de l'équipe par tranche de 30 secondes de la phase d'action.</p>
+      <TimingChart kills={sum((p) => p.killTiming)} deaths={sum((p) => p.deathTiming)} />
 
       <h2>Par côté</h2>
       <TeamLineTable lines={t.bySide} label="Côté" keyLabel={sideLabel} />
@@ -55,7 +63,7 @@ function TeamView({ t, o }: { t: Team; o: Overview }) {
       <Situations teams={[t]} />
 
       <h2>Joueurs</h2>
-      <PlayerTable players={o.stats.players.filter((p) => p.team === t.name)} byTeam={false} />
+      <PlayerTable players={players} byTeam={false} />
     </>
   );
 }

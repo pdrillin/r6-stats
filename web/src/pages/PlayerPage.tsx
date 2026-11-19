@@ -2,6 +2,7 @@ import { useState, type ReactNode } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useApi, type Overview, type Player } from "../api";
 import { LineTable } from "../components/Breakdown";
+import { TimingChart } from "../components/charts";
 import { Loading } from "../components/Loading";
 import { teamPath } from "../components/PlayerTable";
 import { Table } from "../components/Table";
@@ -61,6 +62,10 @@ function PlayerView({ p }: { p: Player }) {
           )}
         </Card>
       </div>
+
+      <h2>Moment du round</h2>
+      <p className="muted">Kills et morts par tranche de 30 secondes de la phase d'action.</p>
+      <TimingChart kills={p.killTiming} deaths={p.deathTiming} />
 
       <h2>
         Par{" "}

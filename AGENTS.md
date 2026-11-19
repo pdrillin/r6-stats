@@ -75,6 +75,8 @@ Interface web :
 
 - Pages : joueurs (`/`), équipes, détail d'une équipe (côtés, maps, sites, situations), matchs, détail d'un match (rounds dépliables avec kill feed et opérateurs), détail d'un joueur (cartes, ventilation par côté/map/opérateur, pièces), pièces par map.
 - Textes en français. Thème clair ou sombre selon le système. Pas de bibliothèque d'UI : `src/style.css` et un composant `Table` triable.
+- Graphiques (`src/components/charts.tsx`, SVG fait main, pas de bibliothèque) : chronologie des kills d'un match, kills et morts par moment du round (joueur, équipe), morts par pièce. Chacun a un tooltip au survol et au clavier, et ses valeurs restent lisibles sans survol (tableau à côté ou « Voir en tableau »).
+- Couleurs : variables de `style.css` (`--t0`/`--t1` équipes, `--attack`/`--defense`, `--kills`/`--deaths`), validées pour le daltonisme et le contraste en clair et en sombre. Le texte n'est jamais écrit dans une couleur de série : une pastille (`tk0`, `tk1`) porte l'identité de l'équipe.
 - Un pourcentage s'affiche toujours avec son échantillon (`Ratio` : « 35 % 8/23 »), grisé sous 10 cas (`SMALL_SAMPLE`). Pour les ouvertures, la fréquence (« 1er kill ») et la conversion (« Gagnés après ») sont dans deux colonnes séparées.
 - Identifiant d'un match : `id` d'en-tête du premier enregistrement. Identifiant d'un joueur : `Player.ID` (profile id, ou `name:` + pseudo).
 
@@ -127,6 +129,7 @@ Entiers en little-endian sauf mention contraire.
 - Situations : chaque état NvM compté une fois par round, avec le nombre de rounds gagnés.
 - KOST : rounds où le joueur a fait un kill (ennemi), posé ou désamorcé le défuseur, survécu ou vu sa mort tradée. `Survived` = rounds vivant à la fin.
 - Ventilations : `BySide`, `ByMap`, `ByOperator` (joueurs) et `BySide`, `ByMap` (équipes). Calculées par différence des totaux avant et après chaque round, donc toujours cohérentes avec eux : un nouveau compteur doit être ajouté à `Line`/`TeamLine` pour apparaître dans les ventilations. L'opérateur vient de l'en-tête ; il manque pour l'équipe absente d'un en-tête à une seule équipe (ces rounds sont exclus de `ByOperator`).
+- Moment du round (`KillTiming`, `DeathTiming`) : tranche 0 = préparation, tranche i = [(i-1)×30 s, i×30 s) de la phase d'action, la dernière tout ce qui suit 3:00 (seule une pose y mène). Les sommes égalent `Kills` et `Deaths`, vérifié sur le corpus.
 - Pièces : kills comptés dans la pièce du tueur, morts dans celle de la victime, séparés par côté (`Report.Rooms`), et par joueur (`KillRooms`, `DeathRooms`).
 - Sites : par équipe, map et site, rounds joués et gagnés en attaque et en défense, et rounds d'attaque avec pose (et gagnés). Les rounds sans site connu ne comptent pas dans cette ventilation.
 - Les joueurs sont identifiés par leur profile id quand il existe, par leur nom sinon. Les rounds sans vainqueur connu sont écartés et comptés dans `SkippedRounds`.
@@ -134,7 +137,7 @@ Entiers en little-endian sauf mention contraire.
 ## Prochaines étapes
 
 1. Récupérer des replays de ranked sur le PC de l'utilisateur pour vérifier `matchtype`, les profile ids et les différences avec les fichiers de tournoi.
-2. Interface web : la compléter selon les retours (graphiques, filtres par map ou par période, comparaison de joueurs).
+2. Interface web : la compléter selon les retours (filtres par map ou par période, comparaison de joueurs).
 3. Serveur (envoi des `.rec`, Postgres, stockage objet), puis l'app Windows qui réutilise l'interface.
 
 Toujours afficher la taille de l'échantillon à côté d'un pourcentage : les clutches et les situations rares reposent sur peu de cas.

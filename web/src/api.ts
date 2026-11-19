@@ -43,6 +43,9 @@ export interface Player {
   defuses: number;
   kost: number;
   survived: number;
+  /** By moment of the round: prep, then 30 s buckets, the last from 3:00 on. */
+  killTiming: number[];
+  deathTiming: number[];
   killRooms: Record<string, number>;
   deathRooms: Record<string, number>;
   bySide: Record<string, Line>;

@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useApi, type Overview, type Room } from "../api";
+import { RoomBars } from "../components/charts";
 import { Loading } from "../components/Loading";
 import { Table } from "../components/Table";
 
@@ -25,6 +26,9 @@ function Rooms({ rooms }: { rooms: Room[] }) {
           </button>
         ))}
       </div>
+      <h2>Où l'on meurt le plus</h2>
+      <RoomBars key={map} rooms={rows} />
+      <h2>Toutes les pièces</h2>
       <Table
         key={map}
         rows={rows}

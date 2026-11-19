@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useApi, type MatchDetail, type Round } from "../api";
+import { RoundTimeline } from "../components/charts";
 import { Loading } from "../components/Loading";
 import { PlayerTable, teamPath } from "../components/PlayerTable";
 import { clock, date, sideLabel, winReasons } from "../format";
@@ -25,6 +26,10 @@ function Match({ m }: { m: MatchDetail }) {
           ` · partie rehostée : ${m.superseded} enregistrement${m.superseded > 1 ? "s" : ""} de round interrompu écarté${m.superseded > 1 ? "s" : ""}`}
       </p>
       <Progress m={m} />
+
+      <h2>Chronologie</h2>
+      <p className="muted">Chaque point est un kill, placé au moment où il a lieu. Survoler un point pour le détail.</p>
+      <RoundTimeline m={m} />
 
       <h2>Rounds</h2>
       <p className="muted">Cliquer sur un round pour voir le kill feed et les opérateurs.</p>
@@ -71,11 +76,11 @@ function RoundRow({ m, r }: { m: MatchDetail; r: Round }) {
           {r.score[0]}–{r.score[1]}
         </span>
         <span>
-          <span className={`tag t${r.attacker}`}>{team(r.attacker)}</span> attaque
+          <span className={`tag tk${r.attacker}`}>{team(r.attacker)}</span> attaque
         </span>
         <span className="site">{r.site || "site inconnu"}</span>
         <span>
-          <span className={`tag t${r.winner}`}>{team(r.winner)}</span> {winReasons[r.winReason].toLowerCase()}
+          <span className={`tag tk${r.winner}`}>{team(r.winner)}</span> {winReasons[r.winReason].toLowerCase()}
           {r.defuser && ` (${r.defuser})`}
         </span>
         <span className="muted">
@@ -97,10 +102,10 @@ function RoundDetail({ m, r }: { m: MatchDetail; r: Round }) {
         {r.kills.map((k, i) => (
           <li key={i}>
             <span className="time">{clock(k.elapsedMs)}</span>
-            <span className={`t${k.killerTeam}`}>{k.killer || "?"}</span>
+            <span className={`tk${k.killerTeam}`}>{k.killer || "?"}</span>
             {k.killerRoom && <span className="room">{k.killerRoom}</span>}
             <span className="muted">{k.headshot ? "⌖ HS" : "→"}</span>
-            <span className={`t${k.victimTeam}`}>{k.victim}</span>
+            <span className={`tk${k.victimTeam}`}>{k.victim}</span>
             {k.victimRoom && <span className="room">{k.victimRoom}</span>}
             {k.killerTeam === k.victimTeam && <span className="neg">team kill</span>}
           </li>
@@ -113,7 +118,7 @@ function RoundDetail({ m, r }: { m: MatchDetail; r: Round }) {
             <thead>
               <tr>
                 <th className="text">
-                  <Link to={teamPath(m.teams[t]!)} className={`t${t}`}>
+                  <Link to={teamPath(m.teams[t]!)} className={`tk${t}`}>
                     {m.teams[t]}
                   </Link>{" "}
                   <span className="muted">{sideLabel(r.players.find((p) => p.team === t)?.side ?? "")}</span>
