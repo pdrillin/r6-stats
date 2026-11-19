@@ -73,7 +73,8 @@ Organisation : `Replays/<série>/<n> - <map>/Match-<date>-<id>/Match-...-RNN.rec
 
 Interface web :
 
-- Pages : joueurs (`/`), équipes, détail d'une équipe (côtés, maps, sites, situations), matchs, détail d'un match (rounds dépliables avec kill feed et opérateurs), détail d'un joueur (cartes, ventilation par côté/map/opérateur, pièces), pièces par map.
+- Pages : joueurs (`/`), équipes, détail d'une équipe (côtés, maps, sites, situations), matchs, détail d'un match (rounds dépliables avec kill feed et opérateurs), détail d'un joueur (cartes, ventilation par côté/map/opérateur, pièces), pièces par map, comparaison de deux joueurs (`/compare?a=…&b=…`).
+- Comparaison : stats ramenées au nombre de rounds de chacun (ou en pourcentage), valeur la plus favorable en gras (`lowerIsBetter` pour les morts et la première mort), barres normalisées ligne par ligne, graphiques « moment du round » sur la même échelle. Calculée côté client à partir de `/api/overview`, donc le filtre par map s'applique.
 - Textes en français. Thème clair ou sombre selon le système. Pas de bibliothèque d'UI : `src/style.css` et un composant `Table` triable.
 - Graphiques (`src/components/charts.tsx`, SVG fait main, pas de bibliothèque) : chronologie des kills d'un match, kills et morts par moment du round (joueur, équipe), morts par pièce. Chacun a un tooltip au survol et au clavier, et ses valeurs restent lisibles sans survol (tableau à côté ou « Voir en tableau »).
 - Couleurs : variables de `style.css` (`--t0`/`--t1` équipes, `--attack`/`--defense`, `--kills`/`--deaths`), validées pour le daltonisme et le contraste en clair et en sombre. Le texte n'est jamais écrit dans une couleur de série : une pastille (`tk0`, `tk1`) porte l'identité de l'équipe.
@@ -138,7 +139,7 @@ Entiers en little-endian sauf mention contraire.
 ## Prochaines étapes
 
 1. Récupérer des replays de ranked sur le PC de l'utilisateur pour vérifier `matchtype`, les profile ids et les différences avec les fichiers de tournoi.
-2. Interface web : la compléter selon les retours (filtre par période, comparaison de joueurs).
+2. Interface web : la compléter selon les retours (filtre par période).
 3. Serveur (envoi des `.rec`, Postgres, stockage objet), puis l'app Windows qui réutilise l'interface.
 
 Toujours afficher la taille de l'échantillon à côté d'un pourcentage : les clutches et les situations rares reposent sur peu de cas.

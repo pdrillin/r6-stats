@@ -1,5 +1,5 @@
 import { useState, type ReactNode } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useLocation, useParams } from "react-router-dom";
 import type { Player } from "../api";
 import { LineTable } from "../components/Breakdown";
 import { TimingChart } from "../components/charts";
@@ -41,7 +41,17 @@ const splits = {
   operator: { label: "Opérateur", lines: (p: Player) => p.byOperator, key: undefined },
 };
 
+/** The comparison page with this player as A, keeping the map filter. */
+function compareLink(p: Player, search: string): string {
+  const q = new URLSearchParams();
+  q.set("a", p.id);
+  const map = new URLSearchParams(search).get("map");
+  if (map) q.set("map", map);
+  return "/compare?" + q.toString();
+}
+
 function PlayerView({ p, filter }: { p: Player; filter: ReactNode }) {
+  const { search } = useLocation();
   const [split, setSplit] = useState<keyof typeof splits>("side");
   const s = splits[split];
   const clutchSizes = Object.keys(p.clutches ?? {}).sort((a, b) => Number(a) - Number(b));
@@ -49,6 +59,9 @@ function PlayerView({ p, filter }: { p: Player; filter: ReactNode }) {
     <>
       <h1>
         {p.name} <FLink to={teamPath(p.team)} className="team-link">{p.team}</FLink>
+        <Link to={compareLink(p, search)} className="compare-link">
+          Comparer avec…
+        </Link>
       </h1>
       {filter}
       <div className="cards">

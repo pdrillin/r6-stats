@@ -1,4 +1,5 @@
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
+import { ComparePage } from "./pages/ComparePage";
 import { MatchPage } from "./pages/MatchPage";
 import { MatchesPage } from "./pages/MatchesPage";
 import { OverviewPage } from "./pages/OverviewPage";
@@ -24,6 +25,7 @@ export function App() {
           <NavLink to={keep("/teams")}>Équipes</NavLink>
           <NavLink to={keep("/matches")}>Matchs</NavLink>
           <NavLink to={keep("/rooms")}>Pièces</NavLink>
+          <NavLink to={keep("/compare")}>Comparer</NavLink>
         </nav>
       </header>
       <main>
@@ -35,6 +37,7 @@ export function App() {
           <Route path="/matches" element={<MatchesPage />} />
           <Route path="/matches/:id" element={<MatchPage />} />
           <Route path="/rooms" element={<RoomsPage />} />
+          <Route path="/compare" element={<ComparePage />} />
           <Route path="*" element={<p className="error">Page introuvable.</p>} />
         </Routes>
       </main>

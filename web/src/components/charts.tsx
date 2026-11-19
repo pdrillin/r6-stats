@@ -104,13 +104,25 @@ function timingRange(i: number): string {
  * Kills above the baseline, deaths below, by moment of the round. One axis:
  * both are counts of the same events.
  */
-export function TimingChart({ kills, deaths }: { kills: number[]; deaths: number[] }) {
+export function TimingChart({
+  kills,
+  deaths,
+  max: fixedMax,
+  table = true,
+}: {
+  kills: number[];
+  deaths: number[];
+  /** Axis maximum, to give several charts the same scale. */
+  max?: number;
+  /** Whether to offer the table view under the chart. */
+  table?: boolean;
+}) {
   const [ref, width] = useWidth<HTMLDivElement>();
   const [tip, setTip] = useState<Tip | null>(null);
   const n = timingLabels.length;
   const height = 220;
   const pad = { top: 16, bottom: 28, left: 34, right: 8 };
-  const max = Math.max(1, ...kills, ...deaths);
+  const max = fixedMax ?? Math.max(1, ...kills, ...deaths);
   const step = niceStep(max);
   const top = Math.ceil(max / step) * step;
   const plotH = height - pad.top - pad.bottom;
@@ -172,6 +184,7 @@ export function TimingChart({ kills, deaths }: { kills: number[]; deaths: number
           </svg>
         )}
       </Frame>
+      {table && (
       <details className="table-view">
         <summary>Voir en tableau</summary>
         <div className="table-wrap">
@@ -195,6 +208,7 @@ export function TimingChart({ kills, deaths }: { kills: number[]; deaths: number
           </table>
         </div>
       </details>
+      )}
     </>
   );
 }

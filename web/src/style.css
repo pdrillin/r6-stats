@@ -94,6 +94,7 @@ h2 {
   z-index: 1;
 }
 .brand {
+  white-space: nowrap;
   font-weight: 800;
   letter-spacing: 0.02em;
   color: var(--accent);
@@ -636,4 +637,112 @@ h2 .tabs {
 .stale {
   opacity: 0.55;
   transition: opacity 0.15s;
+}
+
+/* Player comparison */
+.versus-head {
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 1rem;
+  margin: 1.25rem 0 0.5rem;
+}
+.versus-player {
+  display: grid;
+  gap: 0.15rem;
+}
+.versus-player.right {
+  justify-items: end;
+  text-align: right;
+}
+.versus-name {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text);
+}
+.versus {
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 0.25rem 1rem;
+}
+.versus-row {
+  display: grid;
+  grid-template-columns: 9rem minmax(3rem, 1fr) minmax(12rem, 16rem) minmax(3rem, 1fr) 9rem;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.45rem 0;
+}
+.versus-row + .versus-row {
+  border-top: 1px solid var(--border);
+}
+.versus-label {
+  text-align: center;
+  font-size: 0.9rem;
+}
+.versus-bar {
+  display: flex;
+  height: 10px;
+}
+.versus-bar span {
+  display: block;
+  height: 100%;
+  border-radius: 0 4px 4px 0;
+}
+.versus-bar.left {
+  justify-content: flex-end;
+}
+.versus-bar.left span {
+  border-radius: 4px 0 0 4px;
+}
+.versus-value {
+  font-variant-numeric: tabular-nums;
+}
+.versus-value.right {
+  text-align: right;
+}
+.versus-value .sample {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+.versus-value.small > span:first-child {
+  color: var(--muted);
+}
+.versus-value .best {
+  font-weight: 700;
+}
+.small-multiples {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+}
+h3 {
+  font-size: 1rem;
+  margin: 0 0 0.4rem;
+}
+.compare-link {
+  font-size: 0.9rem;
+  font-weight: 400;
+}
+
+@media (max-width: 900px) {
+  .versus-row {
+    grid-template-columns: 1fr 1fr 1fr 1fr;
+    gap: 0.3rem 0.5rem;
+  }
+  .versus-label {
+    grid-column: 1 / -1;
+    grid-row: 1;
+  }
+  .versus-value .sample {
+    display: block;
+  }
+  .versus-head,
+  .small-multiples {
+    grid-template-columns: 1fr;
+  }
+  .versus-player.right {
+    justify-items: start;
+    text-align: left;
+  }
 }
