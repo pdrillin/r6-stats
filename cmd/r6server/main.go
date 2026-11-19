@@ -137,7 +137,11 @@ func serve(s *server.Server, args []string) error {
 	h := s.Handler(cfg)
 	mux.Handle("/api/", h)
 	mux.Handle("/auth/", h)
-	if *web != "" {
+	if *web == "" {
+		// Somewhere to land after signing in, until the interface is
+		// served.
+		mux.Handle("/", s.Home())
+	} else {
 		mux.Handle("/", http.FileServer(spaFS{http.Dir(*web)}))
 	}
 	log.Printf("listening on %s (%s)", *addr, cfg.BaseURL)

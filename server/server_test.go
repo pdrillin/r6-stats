@@ -663,3 +663,33 @@ func TestNewerSchemaRefused(t *testing.T) {
 		t.Error("database from a newer server opened")
 	}
 }
+
+func TestHome(t *testing.T) {
+	s := open(t, t.TempDir())
+	alice := newClient(t, s, Config{BaseURL: testURL}, "alice")
+	alice.createSpace("Ma team")
+	home := s.Home()
+	page := func(session, path string) (int, string) {
+		req := httptest.NewRequest("GET", path, nil)
+		if session != "" {
+			req.AddCookie(&http.Cookie{Name: sessionCookie, Value: session})
+		}
+		rr := httptest.NewRecorder()
+		home.ServeHTTP(rr, req)
+		return rr.Code, rr.Body.String()
+	}
+	if code, body := page("", "/"); code != 200 || !strings.Contains(body, `href="/auth/login"`) {
+		t.Errorf("signed out: %d, no sign-in link", code)
+	}
+	if code, body := page(alice.session, "/"); code != 200 || !strings.Contains(body, "alice") || !strings.Contains(body, "Ma team") {
+		t.Errorf("signed in: %d, name or space missing", code)
+	}
+	if code, _ := page(alice.session, "/elsewhere"); code != http.StatusNotFound {
+		t.Errorf("other path: %d", code)
+	}
+	// Names come from Discord: they are escaped.
+	s.db.Exec("UPDATE users SET name = '<script>x</script>'")
+	if _, body := page(alice.session, "/"); strings.Contains(body, "<script>x") {
+		t.Error("user name not escaped")
+	}
+}
