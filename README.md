@@ -4,6 +4,37 @@ Statistiques avancées de matchs Rainbow Six Siege, calculées à partir des fic
 
 Le parser est écrit de zéro en Go. Il est validé sur des replays de la saison Y11S2 ; les autres saisons ne sont pas prises en charge pour l'instant.
 
+## Aperçu
+
+Les captures montrent la grande finale FURIA – FaZe de l'EWC 2026, vue depuis l'espace de FaZe.
+
+**Accueil d'une équipe** : bilan, chiffres clés, constats en clair (toujours avec le nombre de rounds derrière), derniers matchs.
+
+![Accueil d'une équipe](docs/screenshots/accueil.jpg)
+
+**Page d'un match** : score, déroulé des rounds, les deux équipes comparées, chronologie des kills ; rounds et joueurs dans leurs onglets.
+
+![Page d'un match](docs/screenshots/match.jpg)
+
+**Fiche adversaire** : pour préparer un match, ici sur Bank : sites choisis en défense, attaque site par site, joueurs à surveiller, opérateurs, rythme, pièces.
+
+![Fiche adversaire](docs/screenshots/fiche-adversaire.jpg)
+
+**Joueurs** : les colonnes essentielles, les autres sur demande, une aide ⓘ par colonne.
+
+![Tableau des joueurs](docs/screenshots/joueurs.jpg)
+
+**Envoi des replays** : on glisse le dossier `MatchReplay` du jeu, les matchs déjà envoyés sont reconnus.
+
+![Envoi des replays](docs/screenshots/envoi.jpg)
+
+**Sur téléphone** : la même interface, avec un menu en tiroir et des fiches à la place des tableaux.
+
+<p>
+  <img src="docs/screenshots/mobile-accueil.jpg" alt="Accueil sur téléphone" width="260">
+  <img src="docs/screenshots/mobile-menu.jpg" alt="Menu sur téléphone" width="260">
+</p>
+
 ## Ce qui est décodé
 
 - **En-tête** : map, équipes, score avant le round, joueurs avec opérateur et côté (attaque/défense), version du jeu.
@@ -113,6 +144,18 @@ GOOS=windows GOARCH=amd64 go build -o r6rec.exe ./cmd/r6rec
 | `server/` | Serveur partagé : espaces, envoi des replays, base SQLite |
 | `cmd/r6rec/` | Outil en ligne de commande |
 | `web/` | Interface web (React, TypeScript, Vite) |
+
+## Captures d'écran
+
+Les images de l'aperçu se refont d'une commande, à relancer après un changement visible de l'interface. Il faut le corpus `Replays/`, Chrome ou Chromium, et un serveur vide lancé avec la connexion de développement :
+
+```sh
+cd web && npm run build && cd ..
+go run ./cmd/r6server -data /tmp/r6-captures serve -dev-login -web web/dist
+cd web && npm run screenshots    # dans un autre terminal ; écrit docs/screenshots/
+```
+
+Variables utiles : `R6_URL` (adresse du serveur), `R6_REPLAYS` (dossier des replays), `CHROME` (navigateur à utiliser).
 
 ## Tests
 

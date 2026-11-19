@@ -129,6 +129,8 @@ npm run build   # vérifie les types puis produit web/dist
 
 En développement, lancer `r6rec serve Replays` (ou `r6server serve -dev-login -url http://localhost:5173`, pour que la connexion revienne par Vite) d'un côté et `npm run dev` de l'autre. Pour servir l'interface construite sans Node : `r6rec serve -web web/dist Replays` ou `r6server serve -web web/dist`.
 
+Captures du README (`docs/screenshots/`, JPEG) : `web/scripts/screenshots.mjs` (`npm run screenshots`) les refait sur un `r6server` vide lancé avec `-dev-login` : il crée un espace, envoie le corpus, suit FaZe, invite un second membre (pour que l'accueil montre le tableau de bord), puis photographie les pages. À relancer après un changement visible de l'interface.
+
 La CI (`.github/workflows/test.yml`) lance gofmt, vet, les tests et la compilation Windows, et un job séparé construit l'interface web. `gofmt -l .` doit rester vide.
 
 ## Corpus de replays
