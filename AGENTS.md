@@ -14,7 +14,7 @@ Produit prévu, pas encore construit :
 
 L'app Windows locale complète (interface embarquée, sans serveur) a été écartée : elle ne servirait qu'à celui qui l'installe, alors que coach et coéquipiers doivent voir les stats.
 
-Le parsing se fait côté serveur : un changement de saison ne demande qu'une mise à jour du serveur. Aujourd'hui existent le parser Go, le regroupement en matchs, les stats, un outil en ligne de commande avec une API JSON locale (`r6rec serve`, lit un dossier de replays), l'interface web, et le cœur du serveur partagé (`r6server` : espaces, envoi des replays, base SQLite), encore sans comptes ni interface d'envoi.
+Le parsing se fait côté serveur : un changement de saison ne demande qu'une mise à jour du serveur. Aujourd'hui existent le parser Go, le regroupement en matchs, les stats, un outil en ligne de commande avec une API JSON locale (`r6rec serve`, lit un dossier de replays), l'interface web, et le serveur partagé (`r6server` : espaces, envoi des replays, base SQLite, connexion Discord, rôles, invitations), dont l'interface n'est pas encore branchée.
 
 ## Utilisations visées
 
@@ -107,11 +107,12 @@ go run ./cmd/r6rec cache info        # emplacement et taille du cache (aussi : c
 go run ./cmd/r6server create "Ma team" team     # crée un espace, affiche son id (aussi : league)
 go run ./cmd/r6server import <id> Replays       # envoie tous les .rec d'un dossier dans l'espace
 go run ./cmd/r6server spaces                    # liste les espaces
-go run ./cmd/r6server serve                     # API sur 127.0.0.1:8080 (-addr, -web web/dist)
+go run ./cmd/r6server invite <id> [manager|player]  # lien d'invitation (premier responsable d'un espace créé ici)
+go run ./cmd/r6server serve                     # 127.0.0.1:8080 (-addr, -url, -web web/dist, -dev-login)
 # -data <dossier> avant la sous-commande : base et bruts (défaut r6-data)
 ```
 
-`r6server` n'a pas encore de comptes : `serve` refuse toute adresse autre que la machine locale.
+Connexion : variables `R6_DISCORD_CLIENT_ID`, `R6_DISCORD_CLIENT_SECRET` (application OAuth2 Discord, redirection `<url>/auth/callback`) et `R6_CREATORS` (identifiants Discord autorisés à créer des espaces, séparés par des virgules ; vide = tout le monde). `-dev-login` permet de se connecter par un simple nom (`/auth/dev?name=…`), sans Discord : refusé hors de la machine locale. Hors de la machine locale, `serve` exige une `-url` en https. Ouvrir le site à l'adresse exacte de `-url` : les modifications venant d'une autre origine sont refusées.
 
 Les rounds décodés sont mis en cache (dossier de cache de l'utilisateur : `~/.cache/r6-stats`, `%LocalAppData%\r6-stats` sous Windows). `R6STATS_CACHE=<dossier>` en choisit un autre, `R6STATS_CACHE=off` le coupe. Corpus : environ 5 s sans cache (décodage en parallèle), 0,2 s avec, 1,7 Mo de cache.
 
@@ -148,9 +149,9 @@ Organisation : `Replays/<série>/<n> - <map>/Match-<date>-<id>/Match-...-RNN.rec
 | `match/` | Regroupe les rounds en matchs, gère les rehosts ; `Roster` complète une équipe manquante |
 | `stats/` | Duels d'ouverture, trades, clutches, conversion des avantages numériques |
 | `api/` | API JSON pour l'interface, celle de `r6rec serve` et celle de chaque espace du serveur (`api.Store` : fichier local ou base du serveur). Lecture : `/api/overview` (`?map=`, `?kind=` ; calculée à la demande, gardée en mémoire, oubliée quand un type de match change), `/api/matches`, `/api/matches/{id}`, `/api/settings`. Écriture : `PUT /api/matches/{id}/kind`, `PUT /api/settings`, en JSON uniquement (un autre site ne peut pas envoyer de JSON au serveur local via le navigateur sans préflight, jamais accepté) ; sert aussi l'interface construite (repli sur `index.html` pour les routes de la SPA) |
-| `server/` | Serveur partagé : espaces, réception des replays (`Add` : décodé une fois, lié à l'espace, doublons repérés par SHA-256), base SQLite (`db.go`, migrations par `PRAGMA user_version` : ne jamais modifier une migration publiée, en ajouter une), bruts dans `raw/aa/bb/<sha256>.rec`, un bloc zstd JSON par round (en-tête complet compris), vue de chaque espace = un `api.Server` construit à la demande et oublié quand l'espace change, `Redecode` au démarrage pour les rounds d'un ancien parser. Routes : `GET/POST /api/spaces`, `POST /api/spaces/{id}/replays` (multipart, champ `files`, en-tête `X-R6-Upload: 1` exigé contre les formulaires d'autres sites), et l'API de l'espace sous `/api/spaces/{id}/…` |
+| `server/` | Serveur partagé. `auth.go` : connexion Discord (OAuth2, permission `identify` seule, jeton Discord jamais gardé, `state` lié au navigateur par un cookie), session = cookie aléatoire `HttpOnly` `SameSite=Lax` dont la base ne garde que le SHA-256, refus des modifications venant d'un autre site (`Sec-Fetch-Site`, `Origin`). `members.go` : utilisateurs, rôles (`manager` : invite, retire, change les rôles, étiquette les matchs, choisit « mon équipe » ; `player` : envoie et consulte), un espace garde toujours un responsable, invitations par lien (7 jours, plusieurs usages, révocables, seule l'empreinte est gardée). `http.go` : toutes les règles d'accès ; un non-membre reçoit 404 pour ne pas révéler l'existence de l'espace. Espaces, réception des replays (`Add` : décodé une fois, lié à l'espace, doublons repérés par SHA-256), base SQLite (`db.go`, migrations par `PRAGMA user_version` : ne jamais modifier une migration publiée, en ajouter une), bruts dans `raw/aa/bb/<sha256>.rec`, un bloc zstd JSON par round (en-tête complet compris), vue de chaque espace = un `api.Server` construit à la demande et oublié quand l'espace change, `Redecode` au démarrage pour les rounds d'un ancien parser. Routes : voir le commentaire de `Server.Handler` (connexion, `/api/me`, espaces, invitations, membres, envoi en multipart avec l'en-tête `X-R6-Upload: 1`, API de l'espace sous `/api/spaces/{id}/…`) |
 | `cmd/r6rec/` | Outil en ligne de commande |
-| `cmd/r6server/` | Le serveur partagé : `serve`, `create`, `import`, `spaces` |
+| `cmd/r6server/` | Le serveur partagé : `serve`, `create`, `invite`, `import`, `spaces` |
 | `web/` | Interface React + TypeScript + Vite. `src/api.ts` reprend à la main les types JSON de Go : un champ ajouté côté Go doit y être ajouté aussi |
 
 Interface web :
@@ -228,7 +229,7 @@ Entiers en little-endian sauf mention contraire.
 3. **Vues « équipe »** (faits : accueil d'équipe, fiche adversaire, type pracc ou officiel et son filtre) : à compléter avec la reconnaissance de « nous » par les joueurs plutôt que par le nom, la revue d'un round (positions au fil du temps), et un minimum de rounds sur la page Joueurs.
 4. **Serveur partagé**, avant l'app Windows (voir « Hébergement et stockage ») :
    1. **fait** : cœur testable en local (`server/`, `cmd/r6server`) : base SQLite, stockage des bruts, envoi et décodage des matchs, espaces, API propre à chaque espace. Corpus : 84 rounds en 12 s, base de 508 Ko contre 578 Mo de bruts, stats identiques à `r6rec` ;
-   2. connexion Discord, invitations, rôles ;
+   2. **fait** : connexion Discord, sessions, rôles, invitations, contrôle d'accès, bêta fermée (`R6_CREATORS`), connexion de développement. Testé avec un faux Discord ; reste à l'essayer avec une vraie application Discord ;
    3. interface : connexion, choix de l'espace, envoi par glisser-déposer, membres (l'interface actuelle appelle encore `/api/…` sans espace : elle devra préfixer `/api/spaces/{id}`) ;
    4. mise en ligne (VPS, domaine, HTTPS avec Caddy, sauvegardes) : l'utilisateur fournit l'hébergement, le domaine et l'application Discord.
 5. **App Windows légère** : surveillance de `MatchReplay`, archive locale, envoi automatique à l'espace.

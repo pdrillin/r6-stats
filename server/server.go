@@ -26,6 +26,7 @@ import (
 type Server struct {
 	db  *sql.DB
 	dir string
+	cfg Config // set by Handler
 
 	mu    sync.Mutex
 	views map[string]*api.Server // per space, built on demand
@@ -64,10 +65,15 @@ type Space struct {
 	Kind      SpaceKind `json:"kind"`
 	CreatedAt string    `json:"createdAt"`
 	Files     int       `json:"files"` // replays held
+	// Role is the role of the user who asked, in the lists of a user's
+	// spaces.
+	Role Role `json:"role,omitempty"`
 }
 
-// CreateSpace adds a space.
-func (s *Server) CreateSpace(name string, kind SpaceKind) (Space, error) {
+// CreateSpace adds a space. A non-empty owner becomes its manager; a space
+// created from the command line has none until a manager invitation is
+// accepted.
+func (s *Server) CreateSpace(name string, kind SpaceKind, owner string) (Space, error) {
 	name = strings.TrimSpace(name)
 	if name == "" || len(name) > 80 {
 		return Space{}, fmt.Errorf("a space needs a name of 1 to 80 characters")
@@ -76,17 +82,42 @@ func (s *Server) CreateSpace(name string, kind SpaceKind) (Space, error) {
 		return Space{}, fmt.Errorf("unknown space kind %q", kind)
 	}
 	sp := Space{ID: newID(), Name: name, Kind: kind, CreatedAt: now()}
-	_, err := s.db.Exec("INSERT INTO spaces (id, name, kind, created_at) VALUES (?, ?, ?, ?)",
-		sp.ID, sp.Name, sp.Kind, sp.CreatedAt)
-	return sp, err
+	tx, err := s.db.Begin()
+	if err != nil {
+		return Space{}, err
+	}
+	defer tx.Rollback()
+	if _, err := tx.Exec("INSERT INTO spaces (id, name, kind, created_at) VALUES (?, ?, ?, ?)",
+		sp.ID, sp.Name, sp.Kind, sp.CreatedAt); err != nil {
+		return Space{}, err
+	}
+	if owner != "" {
+		sp.Role = Manager
+		if _, err := tx.Exec("INSERT INTO memberships (space_id, user_id, role, joined_at) VALUES (?, ?, 'manager', ?)",
+			sp.ID, owner, now()); err != nil {
+			return Space{}, err
+		}
+	}
+	return sp, tx.Commit()
 }
 
-// Spaces lists the spaces, oldest first.
+// Spaces lists every space, oldest first.
 func (s *Server) Spaces() ([]Space, error) {
-	rows, err := s.db.Query(`
-		SELECT s.id, s.name, s.kind, s.created_at, COUNT(f.sha256)
-		FROM spaces s LEFT JOIN space_files f ON f.space_id = s.id
-		GROUP BY s.id ORDER BY s.rowid`)
+	return s.querySpaces(`
+		SELECT s.id, s.name, s.kind, s.created_at, (SELECT COUNT(*) FROM space_files f WHERE f.space_id = s.id), ''
+		FROM spaces s ORDER BY s.rowid`)
+}
+
+// SpacesOf lists the spaces a user is a member of, with their role.
+func (s *Server) SpacesOf(userID string) ([]Space, error) {
+	return s.querySpaces(`
+		SELECT s.id, s.name, s.kind, s.created_at, (SELECT COUNT(*) FROM space_files f WHERE f.space_id = s.id), m.role
+		FROM spaces s JOIN memberships m ON m.space_id = s.id AND m.user_id = ?
+		ORDER BY s.rowid`, userID)
+}
+
+func (s *Server) querySpaces(query string, args ...any) ([]Space, error) {
+	rows, err := s.db.Query(query, args...)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +125,7 @@ func (s *Server) Spaces() ([]Space, error) {
 	out := []Space{}
 	for rows.Next() {
 		var sp Space
-		if err := rows.Scan(&sp.ID, &sp.Name, &sp.Kind, &sp.CreatedAt, &sp.Files); err != nil {
+		if err := rows.Scan(&sp.ID, &sp.Name, &sp.Kind, &sp.CreatedAt, &sp.Files, &sp.Role); err != nil {
 			return nil, err
 		}
 		out = append(out, sp)
@@ -127,6 +158,7 @@ const MaxReplaySize = 64 << 20
 type Upload struct {
 	Name string // file name as sent, e.g. Match-…-R01.rec
 	Data []byte
+	By   string // id of the user who sent it, empty from the command line
 }
 
 // Status says what became of an upload.
@@ -211,8 +243,12 @@ func (s *Server) Add(spaceID string, u Upload) (Result, error) {
 			return res, err
 		}
 	}
-	r, err := tx.Exec(`INSERT INTO space_files (space_id, sha256, file_name, added_at) VALUES (?, ?, ?, ?)
-		ON CONFLICT DO NOTHING`, spaceID, res.SHA256, res.Name, now())
+	var by any
+	if u.By != "" {
+		by = u.By
+	}
+	r, err := tx.Exec(`INSERT INTO space_files (space_id, sha256, file_name, added_at, uploaded_by) VALUES (?, ?, ?, ?, ?)
+		ON CONFLICT DO NOTHING`, spaceID, res.SHA256, res.Name, now(), by)
 	if err != nil {
 		return res, err
 	}

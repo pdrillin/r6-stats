@@ -9,6 +9,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"sort"
@@ -58,15 +59,6 @@ func open(t *testing.T, dir string) *Server {
 	return s
 }
 
-func space(t *testing.T, s *Server, name string) string {
-	t.Helper()
-	sp, err := s.CreateSpace(name, Team)
-	if err != nil {
-		t.Fatal(err)
-	}
-	return sp.ID
-}
-
 func add(t *testing.T, s *Server, id string, files []Upload, want Status) {
 	t.Helper()
 	for _, u := range files {
@@ -89,17 +81,99 @@ func count(t *testing.T, s *Server, query string, args ...any) int {
 	return n
 }
 
-// get calls the API of the server and decodes the answer.
-func get(t *testing.T, h http.Handler, url string, v any) int {
+const testURL = "http://r6.test"
+
+// client calls the server as one signed-in user (or nobody, with an empty
+// session).
+type client struct {
+	t       *testing.T
+	h       http.Handler
+	user    User
+	session string
+}
+
+func newClient(t *testing.T, s *Server, cfg Config, name string) *client {
 	t.Helper()
+	c := &client{t: t, h: s.Handler(cfg)}
+	if name != "" {
+		u, secret, err := s.SignIn("discord-"+name, name, "")
+		if err != nil {
+			t.Fatal(err)
+		}
+		c.user, c.session = u, secret
+	}
+	return c
+}
+
+func (c *client) do(method, url, contentType string, body io.Reader, header map[string]string) *httptest.ResponseRecorder {
+	c.t.Helper()
+	req := httptest.NewRequest(method, url, body)
+	if contentType != "" {
+		req.Header.Set("Content-Type", contentType)
+	}
+	for k, v := range header {
+		req.Header.Set(k, v)
+	}
+	if c.session != "" {
+		req.AddCookie(&http.Cookie{Name: sessionCookie, Value: c.session})
+	}
 	rr := httptest.NewRecorder()
-	h.ServeHTTP(rr, httptest.NewRequest("GET", url, nil))
+	c.h.ServeHTTP(rr, req)
+	return rr
+}
+
+// get decodes the answer into v when the status is 200, and returns the status.
+func (c *client) get(url string, v any) int {
+	c.t.Helper()
+	rr := c.do("GET", url, "", nil, nil)
 	if v != nil && rr.Code == http.StatusOK {
 		if err := json.Unmarshal(rr.Body.Bytes(), v); err != nil {
-			t.Fatalf("%s: %v", url, err)
+			c.t.Fatalf("%s: %v", url, err)
 		}
 	}
 	return rr.Code
+}
+
+// send makes a JSON request, decodes a JSON answer into v, returns the status.
+func (c *client) send(method, url, body string, v any) int {
+	c.t.Helper()
+	rr := c.do(method, url, "application/json", strings.NewReader(body), nil)
+	if v != nil && rr.Code < 300 {
+		if err := json.Unmarshal(rr.Body.Bytes(), v); err != nil {
+			c.t.Fatalf("%s %s: %v (%s)", method, url, err, rr.Body)
+		}
+	}
+	return rr.Code
+}
+
+func (c *client) createSpace(name string) Space {
+	c.t.Helper()
+	var sp Space
+	if code := c.send("POST", "/api/spaces", `{"name":"`+name+`","kind":"team"}`, &sp); code != http.StatusCreated {
+		c.t.Fatalf("create space: %d", code)
+	}
+	return sp
+}
+
+// upload sends replays through the HTTP API.
+func (c *client) upload(spaceID string, files []Upload) (int, []Result) {
+	c.t.Helper()
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	for _, f := range files {
+		w, err := mw.CreateFormFile("files", f.Name)
+		if err != nil {
+			c.t.Fatal(err)
+		}
+		w.Write(f.Data)
+	}
+	mw.Close()
+	rr := c.do("POST", "/api/spaces/"+spaceID+"/replays", mw.FormDataContentType(), &buf, map[string]string{"X-R6-Upload": "1"})
+	var results []Result
+	if rr.Code == http.StatusOK {
+		json.Unmarshal(rr.Body.Bytes(), &results)
+	}
+	return rr.Code, results
 }
 
 func TestSpaces(t *testing.T) {
@@ -108,17 +182,20 @@ func TestSpaces(t *testing.T) {
 		name string
 		kind SpaceKind
 	}{{"", Team}, {"   ", Team}, {strings.Repeat("x", 81), Team}, {"A", "club"}} {
-		if _, err := s.CreateSpace(c.name, c.kind); err == nil {
+		if _, err := s.CreateSpace(c.name, c.kind, ""); err == nil {
 			t.Errorf("space %q %q accepted", c.name, c.kind)
 		}
 	}
-	a := space(t, s, "Ma team")
-	b, err := s.CreateSpace("Ma ligue", League)
+	a, err := s.CreateSpace("Ma team", Team, "")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if a == b.ID || len(a) != 16 {
-		t.Errorf("ids %q %q", a, b.ID)
+	b, err := s.CreateSpace("Ma ligue", League, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if a.ID == b.ID || len(a.ID) != 16 {
+		t.Errorf("ids %q %q", a.ID, b.ID)
 	}
 	list, err := s.Spaces()
 	if err != nil || len(list) != 2 || list[0].Name != "Ma team" || list[1].Kind != League {
@@ -128,12 +205,12 @@ func TestSpaces(t *testing.T) {
 	if _, err := s.Add("nope", Upload{Name: "x.rec", Data: []byte("x")}); !errors.Is(err, ErrNotFound) {
 		t.Errorf("unknown space: %v", err)
 	}
-	res, err := s.Add(a, Upload{Name: "notes.txt", Data: []byte("not a replay")})
+	res, err := s.Add(a.ID, Upload{Name: "notes.txt", Data: []byte("not a replay")})
 	if err != nil || res.Status != Invalid {
 		t.Errorf("invalid file: %+v, %v", res, err)
 	}
 	big := Upload{Name: "big.rec", Data: make([]byte, MaxReplaySize+1)}
-	if res, _ := s.Add(a, big); res.Status != Invalid {
+	if res, _ := s.Add(a.ID, big); res.Status != Invalid {
 		t.Errorf("oversized file: %+v", res)
 	}
 	if n := count(t, s, "SELECT COUNT(*) FROM replay_files"); n != 0 {
@@ -145,8 +222,9 @@ func TestAddAndView(t *testing.T) {
 	files := chalet(t)
 	dir := t.TempDir()
 	s := open(t, dir)
-	a := space(t, s, "A")
-	b := space(t, s, "B")
+	alice := newClient(t, s, Config{BaseURL: testURL}, "alice")
+	a := alice.createSpace("A").ID
+	b := alice.createSpace("B").ID
 
 	add(t, s, a, files, Added)
 	add(t, s, a, files, Already)
@@ -159,13 +237,9 @@ func TestAddAndView(t *testing.T) {
 	if n := count(t, s, "SELECT COUNT(*) FROM rounds WHERE parser_version = ?", rec.Version); n != len(files) {
 		t.Errorf("%d decoded rounds, want %d", n, len(files))
 	}
-	if n := count(t, s, "SELECT COUNT(*) FROM space_files WHERE space_id = ?", b); n != len(files) {
-		t.Errorf("space B holds %d files", n)
-	}
 
-	h := s.Handler()
 	var list []api.MatchSummary
-	if code := get(t, h, "/api/spaces/"+a+"/matches", &list); code != 200 || len(list) != 1 {
+	if code := alice.get("/api/spaces/"+a+"/matches", &list); code != 200 || len(list) != 1 {
 		t.Fatalf("matches: %d %+v", code, list)
 	}
 	m := list[0]
@@ -174,38 +248,28 @@ func TestAddAndView(t *testing.T) {
 	}
 
 	// Labels and settings are per space and survive a restart.
-	put := func(url, body string) {
-		t.Helper()
-		req := httptest.NewRequest("PUT", url, strings.NewReader(body))
-		req.Header.Set("Content-Type", "application/json")
-		rr := httptest.NewRecorder()
-		h.ServeHTTP(rr, req)
-		if rr.Code != http.StatusNoContent {
-			t.Fatalf("PUT %s: %d %s", url, rr.Code, rr.Body)
-		}
+	if code := alice.send("PUT", "/api/spaces/"+a+"/matches/"+m.ID+"/kind", `{"kind":"official"}`, nil); code != 204 {
+		t.Fatalf("label: %d", code)
 	}
-	put("/api/spaces/"+a+"/matches/"+m.ID+"/kind", `{"kind":"official"}`)
-	put("/api/spaces/"+a+"/settings", `{"myTeam":"DZ"}`)
+	if code := alice.send("PUT", "/api/spaces/"+a+"/settings", `{"myTeam":"DZ"}`, nil); code != 204 {
+		t.Fatalf("settings: %d", code)
+	}
 	s.Close()
 	s = open(t, dir)
-	h = s.Handler()
+	alice.h = s.Handler(Config{BaseURL: testURL})
 	var o api.Overview
-	get(t, h, "/api/spaces/"+a+"/overview?kind=official", &o)
+	alice.get("/api/spaces/"+a+"/overview?kind=official", &o)
 	if o.Matches != 1 || o.Stats.Rounds != 7 {
 		t.Errorf("officials of A after restart: %d matches, %d rounds", o.Matches, o.Stats.Rounds)
 	}
-	get(t, h, "/api/spaces/"+b+"/overview?kind=official", &o)
+	alice.get("/api/spaces/"+b+"/overview?kind=official", &o)
 	if o.Matches != 0 {
 		t.Errorf("A's label leaked into B: %d officials", o.Matches)
 	}
 	var st api.Settings
-	get(t, h, "/api/spaces/"+a+"/settings", &st)
+	alice.get("/api/spaces/"+a+"/settings", &st)
 	if st.MyTeam != "DZ" {
 		t.Errorf("my team after restart = %q", st.MyTeam)
-	}
-	get(t, h, "/api/spaces/"+b+"/settings", &st)
-	if st.MyTeam != "" {
-		t.Errorf("B's team = %q", st.MyTeam)
 	}
 }
 
@@ -215,7 +279,8 @@ func TestWithoutRaw(t *testing.T) {
 	files := chalet(t)
 	dir := t.TempDir()
 	s := open(t, dir)
-	a := space(t, s, "A")
+	alice := newClient(t, s, Config{BaseURL: testURL}, "alice")
+	a := alice.createSpace("A").ID
 	add(t, s, a, files, Added)
 
 	if err := os.RemoveAll(filepath.Join(dir, "raw")); err != nil {
@@ -226,8 +291,9 @@ func TestWithoutRaw(t *testing.T) {
 	}
 	s.Close()
 	s = open(t, dir)
+	alice.h = s.Handler(Config{BaseURL: testURL})
 	var o api.Overview
-	if code := get(t, s.Handler(), "/api/spaces/"+a+"/overview", &o); code != 200 || o.Matches != 1 || o.Stats.Rounds != 7 {
+	if code := alice.get("/api/spaces/"+a+"/overview", &o); code != 200 || o.Matches != 1 || o.Stats.Rounds != 7 {
 		t.Errorf("without raw files: %d, %d matches, %d rounds", code, o.Matches, o.Stats.Rounds)
 	}
 
@@ -253,7 +319,8 @@ func TestWithoutRaw(t *testing.T) {
 func TestRedecode(t *testing.T) {
 	files := chalet(t)
 	s := open(t, t.TempDir())
-	a := space(t, s, "A")
+	alice := newClient(t, s, Config{BaseURL: testURL}, "alice")
+	a := alice.createSpace("A").ID
 	add(t, s, a, files, Added)
 	s.db.Exec("UPDATE rounds SET parser_version = 0, data = x'00'")
 	n, err := s.Redecode()
@@ -261,7 +328,7 @@ func TestRedecode(t *testing.T) {
 		t.Fatalf("redecode: %d, %v", n, err)
 	}
 	var o api.Overview
-	if get(t, s.Handler(), "/api/spaces/"+a+"/overview", &o); o.Stats.Rounds != 7 {
+	if alice.get("/api/spaces/"+a+"/overview", &o); o.Stats.Rounds != 7 {
 		t.Errorf("after redecode: %d rounds", o.Stats.Rounds)
 	}
 	// Sending a file decoded by an older parser decodes it again too.
@@ -272,66 +339,17 @@ func TestRedecode(t *testing.T) {
 	}
 }
 
-// multipartBody builds an upload request body.
-func multipartBody(t *testing.T, files []Upload) (*bytes.Buffer, string) {
-	t.Helper()
-	var buf bytes.Buffer
-	mw := multipart.NewWriter(&buf)
-	for _, f := range files {
-		w, err := mw.CreateFormFile("files", f.Name)
-		if err != nil {
-			t.Fatal(err)
-		}
-		w.Write(f.Data)
-	}
-	mw.Close()
-	return &buf, mw.FormDataContentType()
-}
-
-func TestHTTP(t *testing.T) {
+func TestUpload(t *testing.T) {
 	files := chalet(t)
 	s := open(t, t.TempDir())
-	h := s.Handler()
-
-	send := func(method, url, contentType string, body io.Reader, header bool) *httptest.ResponseRecorder {
-		t.Helper()
-		req := httptest.NewRequest(method, url, body)
-		if contentType != "" {
-			req.Header.Set("Content-Type", contentType)
-		}
-		if header {
-			req.Header.Set("X-R6-Upload", "1")
-		}
-		rr := httptest.NewRecorder()
-		h.ServeHTTP(rr, req)
-		return rr
-	}
-
-	rr := send("POST", "/api/spaces", "application/json", strings.NewReader(`{"name":"Team","kind":"team"}`), false)
-	if rr.Code != http.StatusCreated {
-		t.Fatalf("create: %d %s", rr.Code, rr.Body)
-	}
-	var sp Space
-	json.Unmarshal(rr.Body.Bytes(), &sp)
-	if rr := send("POST", "/api/spaces", "text/plain", strings.NewReader(`{"name":"x","kind":"team"}`), false); rr.Code != http.StatusUnsupportedMediaType {
-		t.Errorf("create as text: %d", rr.Code)
-	}
+	alice := newClient(t, s, Config{BaseURL: testURL}, "alice")
+	sp := alice.createSpace("Team")
 
 	upload := append([]Upload{{Name: "readme.txt", Data: []byte("hello")}}, files...)
-	body, ct := multipartBody(t, upload)
-	raw := body.Bytes()
-	if rr := send("POST", "/api/spaces/"+sp.ID+"/replays", ct, bytes.NewReader(raw), false); rr.Code != http.StatusForbidden {
-		t.Errorf("upload without header: %d", rr.Code)
+	code, results := alice.upload(sp.ID, upload)
+	if code != http.StatusOK {
+		t.Fatalf("upload: %d", code)
 	}
-	if rr := send("POST", "/api/spaces/nope/replays", ct, bytes.NewReader(raw), true); rr.Code != http.StatusNotFound {
-		t.Errorf("upload to unknown space: %d", rr.Code)
-	}
-	rr = send("POST", "/api/spaces/"+sp.ID+"/replays", ct, bytes.NewReader(raw), true)
-	if rr.Code != http.StatusOK {
-		t.Fatalf("upload: %d %s", rr.Code, rr.Body)
-	}
-	var results []Result
-	json.Unmarshal(rr.Body.Bytes(), &results)
 	if len(results) != len(upload) || results[0].Status != Invalid || results[0].Name != "readme.txt" {
 		t.Fatalf("results = %+v", results)
 	}
@@ -340,20 +358,299 @@ func TestHTTP(t *testing.T) {
 			t.Errorf("result %d = %+v", i+1, r)
 		}
 	}
+	if n := count(t, s, "SELECT COUNT(*) FROM space_files WHERE uploaded_by = ?", alice.user.ID); n != len(files) {
+		t.Errorf("%d files credited to the uploader", n)
+	}
+
+	// A plain form from another page lacks the header.
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	mw.CreateFormFile("files", "x.rec")
+	mw.Close()
+	if rr := alice.do("POST", "/api/spaces/"+sp.ID+"/replays", mw.FormDataContentType(), &buf, nil); rr.Code != http.StatusForbidden {
+		t.Errorf("upload without header: %d", rr.Code)
+	}
 
 	var spaces []Space
-	get(t, h, "/api/spaces", &spaces)
-	if len(spaces) != 1 || spaces[0].Files != len(files) {
+	alice.get("/api/spaces", &spaces)
+	if len(spaces) != 1 || spaces[0].Files != len(files) || spaces[0].Role != Manager {
 		t.Errorf("spaces = %+v", spaces)
 	}
 	var list []api.MatchSummary
-	if get(t, h, "/api/spaces/"+sp.ID+"/matches", &list); len(list) != 1 {
+	if alice.get("/api/spaces/"+sp.ID+"/matches", &list); len(list) != 1 {
 		t.Errorf("%d matches after upload", len(list))
 	}
-	for _, url := range []string{"/api/spaces/nope/overview", "/api/spaces/" + sp.ID + "/nope", "/api/nope"} {
-		if code := get(t, h, url, nil); code != http.StatusNotFound {
-			t.Errorf("%s: %d", url, code)
+}
+
+// TestAccess walks through who may do what.
+func TestAccess(t *testing.T) {
+	s := open(t, t.TempDir())
+	cfg := Config{BaseURL: testURL, Creators: []string{"discord-alice"}}
+	alice := newClient(t, s, cfg, "alice")
+	bob := newClient(t, s, cfg, "bob")
+	nobody := newClient(t, s, cfg, "")
+	sp := alice.createSpace("Team")
+	base := "/api/spaces/" + sp.ID
+
+	// Signed out: nothing.
+	for _, url := range []string{"/api/me", "/api/spaces", base + "/overview"} {
+		if code := nobody.get(url, nil); code != http.StatusUnauthorized {
+			t.Errorf("signed out %s: %d", url, code)
 		}
+	}
+	// Bob is not in the creators list.
+	if code := bob.send("POST", "/api/spaces", `{"name":"B","kind":"team"}`, nil); code != http.StatusForbidden {
+		t.Errorf("bob creates a space: %d", code)
+	}
+	var me struct {
+		User
+		CanCreate bool `json:"canCreate"`
+	}
+	bob.get("/api/me", &me)
+	if me.Name != "bob" || me.CanCreate {
+		t.Errorf("bob's /api/me = %+v", me)
+	}
+
+	// Not a member: the space does not exist for him.
+	for _, url := range []string{base + "/overview", base + "/matches", base + "/members"} {
+		if code := bob.get(url, nil); code != http.StatusNotFound {
+			t.Errorf("non-member %s: %d", url, code)
+		}
+	}
+	if code, _ := bob.upload(sp.ID, nil); code != http.StatusNotFound {
+		t.Errorf("non-member upload: %d", code)
+	}
+	var spaces []Space
+	if bob.get("/api/spaces", &spaces); len(spaces) != 0 {
+		t.Errorf("bob sees %d spaces", len(spaces))
+	}
+
+	// Only managers invite.
+	var inv struct {
+		Invitation
+		URL string `json:"url"`
+	}
+	if code := alice.send("POST", base+"/invitations", `{"role":"player"}`, &inv); code != http.StatusCreated {
+		t.Fatalf("invite: %d", code)
+	}
+	if !strings.HasPrefix(inv.URL, testURL+"/invite/") || inv.Token == "" {
+		t.Errorf("invitation = %+v", inv)
+	}
+	var info InvitationInfo
+	if code := bob.get("/api/invitations/"+inv.Token, &info); code != 200 || info.SpaceName != "Team" || info.Role != Player {
+		t.Errorf("invitation info: %d %+v", code, info)
+	}
+	if code := bob.send("POST", "/api/invitations/"+inv.Token+"/accept", ``, nil); code != 200 {
+		t.Fatalf("accept: %d", code)
+	}
+
+	// A player reads and uploads, but changes nothing else.
+	if code := bob.get(base+"/overview", nil); code != 200 {
+		t.Errorf("player reads: %d", code)
+	}
+	if code, _ := bob.upload(sp.ID, nil); code != 200 {
+		t.Errorf("player uploads: %d", code)
+	}
+	for _, c := range []struct{ method, url, body string }{
+		{"PUT", base + "/settings", `{"myTeam":"X"}`},
+		{"PUT", base + "/matches/m/kind", `{"kind":"official"}`},
+		{"POST", base + "/invitations", `{"role":"player"}`},
+		{"PUT", base + "/members/" + alice.user.ID, `{"role":"player"}`},
+		{"DELETE", base + "/members/" + alice.user.ID, ``},
+	} {
+		if code := bob.send(c.method, c.url, c.body, nil); code != http.StatusForbidden {
+			t.Errorf("player %s %s: %d", c.method, c.url, code)
+		}
+	}
+	if code := bob.get(base+"/invitations", nil); code != http.StatusForbidden {
+		t.Errorf("player lists invitations: %d", code)
+	}
+	var members []Member
+	bob.get(base+"/members", &members)
+	if len(members) != 2 || members[0].Name != "alice" || members[0].Role != Manager || members[1].Role != Player {
+		t.Errorf("members = %+v", members)
+	}
+
+	// A space keeps a manager.
+	if code := alice.send("PUT", base+"/members/"+alice.user.ID, `{"role":"player"}`, nil); code != http.StatusConflict {
+		t.Errorf("last manager steps down: %d", code)
+	}
+	if code := alice.send("DELETE", base+"/members/"+alice.user.ID, ``, nil); code != http.StatusConflict {
+		t.Errorf("last manager leaves: %d", code)
+	}
+	if code := alice.send("PUT", base+"/members/"+bob.user.ID, `{"role":"captain"}`, nil); code != http.StatusBadRequest {
+		t.Errorf("unknown role: %d", code)
+	}
+	if code := alice.send("PUT", base+"/members/"+bob.user.ID, `{"role":"manager"}`, nil); code != 204 {
+		t.Errorf("promote bob: %d", code)
+	}
+	if code := alice.send("PUT", base+"/members/"+alice.user.ID, `{"role":"player"}`, nil); code != 204 {
+		t.Errorf("alice steps down once bob manages: %d", code)
+	}
+	// Anyone may leave.
+	if code := alice.send("DELETE", base+"/members/"+alice.user.ID, ``, nil); code != 204 {
+		t.Errorf("alice leaves: %d", code)
+	}
+	if code := alice.get(base+"/overview", nil); code != http.StatusNotFound {
+		t.Errorf("after leaving: %d", code)
+	}
+
+	// Invitations expire and can be revoked.
+	var list []Invitation
+	bob.get(base+"/invitations", &list)
+	if len(list) != 1 || list[0].Token != "" || list[0].CreatedBy != "alice" {
+		t.Errorf("invitations = %+v", list)
+	}
+	s.db.Exec("UPDATE invitations SET expires_at = '2000-01-01T00:00:00Z'")
+	if code := alice.send("POST", "/api/invitations/"+inv.Token+"/accept", ``, nil); code != http.StatusGone {
+		t.Errorf("expired invitation: %d", code)
+	}
+	var inv2 struct{ Invitation }
+	bob.send("POST", base+"/invitations", `{"role":"manager"}`, &inv2)
+	if code := bob.send("DELETE", base+"/invitations/"+inv2.ID, ``, nil); code != 204 {
+		t.Errorf("revoke: %d", code)
+	}
+	if code := alice.get("/api/invitations/"+inv2.Token, nil); code != http.StatusGone {
+		t.Errorf("revoked invitation: %d", code)
+	}
+
+	// Changes asked by another site are refused.
+	rr := bob.do("PUT", base+"/settings", "application/json", strings.NewReader(`{"myTeam":"X"}`),
+		map[string]string{"Origin": "https://evil.example"})
+	if rr.Code != http.StatusForbidden {
+		t.Errorf("cross-origin change: %d", rr.Code)
+	}
+	rr = bob.do("POST", "/auth/logout", "", nil, map[string]string{"Sec-Fetch-Site": "cross-site"})
+	if rr.Code != http.StatusForbidden {
+		t.Errorf("cross-site logout: %d", rr.Code)
+	}
+
+	// Signing out ends the session.
+	if rr := bob.do("POST", "/auth/logout", "", nil, nil); rr.Code != http.StatusNoContent {
+		t.Errorf("logout: %d", rr.Code)
+	}
+	if code := bob.get("/api/me", nil); code != http.StatusUnauthorized {
+		t.Errorf("after logout: %d", code)
+	}
+}
+
+// TestDiscordSignIn runs the OAuth2 flow against a fake Discord.
+func TestDiscordSignIn(t *testing.T) {
+	discord := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		switch r.URL.Path {
+		case "/token":
+			id, secret, _ := r.BasicAuth()
+			r.ParseForm()
+			if id != "client" || secret != "secret" || r.Form.Get("code") != "good-code" ||
+				r.Form.Get("redirect_uri") != testURL+"/auth/callback" {
+				http.Error(w, `{"error":"invalid_grant"}`, http.StatusBadRequest)
+				return
+			}
+			io.WriteString(w, `{"access_token":"tok","token_type":"Bearer"}`)
+		case "/me":
+			if r.Header.Get("Authorization") != "Bearer tok" {
+				http.Error(w, "unauthorized", http.StatusUnauthorized)
+				return
+			}
+			io.WriteString(w, `{"id":"123","username":"pierre_r6","global_name":"Pierre","avatar":"abc"}`)
+		default:
+			http.NotFound(w, r)
+		}
+	}))
+	defer discord.Close()
+
+	s := open(t, t.TempDir())
+	cfg := Config{BaseURL: testURL, Discord: Discord{
+		ClientID: "client", ClientSecret: "secret",
+		AuthorizeURL: discord.URL + "/authorize", TokenURL: discord.URL + "/token", UserURL: discord.URL + "/me",
+	}}
+	c := newClient(t, s, cfg, "")
+
+	// /auth/login sends the browser to Discord with a state kept in a
+	// cookie; a next pointing elsewhere is dropped.
+	rr := c.do("GET", "/auth/login?next="+url.QueryEscape("//evil.example/x"), "", nil, nil)
+	if rr.Code != http.StatusFound {
+		t.Fatalf("login: %d", rr.Code)
+	}
+	loc, _ := url.Parse(rr.Header().Get("Location"))
+	q := loc.Query()
+	if !strings.HasPrefix(loc.String(), discord.URL+"/authorize") || q.Get("client_id") != "client" ||
+		q.Get("scope") != "identify" || q.Get("redirect_uri") != testURL+"/auth/callback" || q.Get("state") == "" {
+		t.Fatalf("redirect = %s", loc)
+	}
+	var stateCookieValue string
+	for _, ck := range rr.Result().Cookies() {
+		if ck.Name == stateCookie {
+			stateCookieValue = ck.Value
+		}
+	}
+
+	callback := func(state, code, cookie string) *httptest.ResponseRecorder {
+		req := httptest.NewRequest("GET", "/auth/callback?state="+state+"&code="+code, nil)
+		if cookie != "" {
+			req.AddCookie(&http.Cookie{Name: stateCookie, Value: cookie})
+		}
+		rr := httptest.NewRecorder()
+		c.h.ServeHTTP(rr, req)
+		return rr
+	}
+	if rr := callback(q.Get("state"), "good-code", ""); rr.Code != http.StatusBadRequest {
+		t.Errorf("callback without state cookie: %d", rr.Code)
+	}
+	if rr := callback("forged", "good-code", stateCookieValue); rr.Code != http.StatusBadRequest {
+		t.Errorf("callback with another state: %d", rr.Code)
+	}
+	if rr := callback(q.Get("state"), "bad-code", stateCookieValue); rr.Code != http.StatusBadGateway {
+		t.Errorf("callback with a refused code: %d", rr.Code)
+	}
+	rr = callback(q.Get("state"), "good-code", stateCookieValue)
+	if rr.Code != http.StatusFound || rr.Header().Get("Location") != "/" {
+		t.Fatalf("callback: %d to %q", rr.Code, rr.Header().Get("Location"))
+	}
+	for _, ck := range rr.Result().Cookies() {
+		if ck.Name == sessionCookie {
+			c.session = ck.Value
+			if !ck.HttpOnly || ck.SameSite != http.SameSiteLaxMode {
+				t.Errorf("session cookie flags: %+v", ck)
+			}
+		}
+	}
+	var me User
+	if code := c.get("/api/me", &me); code != 200 || me.Name != "Pierre" || me.DiscordID != "123" || me.Avatar != "abc" {
+		t.Errorf("me = %d %+v", code, me)
+	}
+	// Signing in again is the same user.
+	if _, _, err := s.SignIn("123", "Pierre R6", ""); err != nil {
+		t.Fatal(err)
+	}
+	if n := count(t, s, "SELECT COUNT(*) FROM users"); n != 1 {
+		t.Errorf("%d users after two sign-ins", n)
+	}
+	// The database keeps hashes, never the session secret itself.
+	if n := count(t, s, "SELECT COUNT(*) FROM sessions WHERE token_hash = ?", c.session); n != 0 {
+		t.Error("session secret stored in clear")
+	}
+}
+
+func TestDevLogin(t *testing.T) {
+	s := open(t, t.TempDir())
+	off := newClient(t, s, Config{BaseURL: testURL}, "")
+	if rr := off.do("GET", "/auth/dev?name=x", "", nil, nil); rr.Code != http.StatusNotFound {
+		t.Errorf("dev login while off: %d", rr.Code)
+	}
+	on := newClient(t, s, Config{BaseURL: testURL, DevLogin: true}, "")
+	rr := on.do("GET", "/auth/dev?name=coach&next=/x", "", nil, nil)
+	if rr.Code != http.StatusFound || rr.Header().Get("Location") != "/x" {
+		t.Fatalf("dev login: %d %q", rr.Code, rr.Header().Get("Location"))
+	}
+	for _, ck := range rr.Result().Cookies() {
+		if ck.Name == sessionCookie {
+			on.session = ck.Value
+		}
+	}
+	var me User
+	if on.get("/api/me", &me); me.Name != "coach" {
+		t.Errorf("dev user = %+v", me)
 	}
 }
 

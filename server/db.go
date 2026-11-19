@@ -68,6 +68,47 @@ CREATE TABLE match_kinds (
 	PRIMARY KEY (space_id, match_id)
 );
 `,
+	`
+-- A person, known through their Discord account.
+CREATE TABLE users (
+	id         TEXT PRIMARY KEY,
+	discord_id TEXT NOT NULL UNIQUE,
+	name       TEXT NOT NULL,
+	avatar     TEXT NOT NULL DEFAULT '', -- Discord avatar hash
+	created_at TEXT NOT NULL
+);
+
+-- A signed-in browser. Only the SHA-256 of the cookie is kept, so a leaked
+-- database does not leak sessions.
+CREATE TABLE sessions (
+	token_hash TEXT PRIMARY KEY,
+	user_id    TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+	created_at TEXT NOT NULL,
+	expires_at TEXT NOT NULL
+);
+
+CREATE TABLE memberships (
+	space_id  TEXT NOT NULL REFERENCES spaces (id) ON DELETE CASCADE,
+	user_id   TEXT NOT NULL REFERENCES users (id) ON DELETE CASCADE,
+	role      TEXT NOT NULL CHECK (role IN ('manager', 'player')),
+	joined_at TEXT NOT NULL,
+	PRIMARY KEY (space_id, user_id)
+);
+
+-- A link to join a space, usable by several people until it expires or is
+-- revoked. Only the SHA-256 of the token is kept.
+CREATE TABLE invitations (
+	id         TEXT PRIMARY KEY,
+	token_hash TEXT NOT NULL UNIQUE,
+	space_id   TEXT NOT NULL REFERENCES spaces (id) ON DELETE CASCADE,
+	role       TEXT NOT NULL CHECK (role IN ('manager', 'player')),
+	created_by TEXT REFERENCES users (id) ON DELETE SET NULL,
+	created_at TEXT NOT NULL,
+	expires_at TEXT NOT NULL
+);
+
+ALTER TABLE space_files ADD COLUMN uploaded_by TEXT REFERENCES users (id) ON DELETE SET NULL;
+`,
 }
 
 // openDB opens the database in dir, creating it and bringing its schema up

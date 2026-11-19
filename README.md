@@ -68,7 +68,19 @@ go run ./cmd/r6server import <id> Replays     # envoie les replays d'un dossier
 go run ./cmd/r6server serve                   # API sur http://127.0.0.1:8080
 ```
 
-Il n'a pas encore de comptes : il n'écoute que sur la machine locale.
+On s'y connecte avec Discord. Chaque espace a ses responsables (capitaine, coach), qui invitent par lien, et ses joueurs. Un espace n'est visible que de ses membres.
+
+Pour activer la connexion Discord :
+
+1. Sur <https://discord.com/developers/applications>, créer une application (gratuit).
+2. Dans **OAuth2**, ajouter la redirection `http://127.0.0.1:8080/auth/callback` (ou `<adresse du site>/auth/callback` une fois en ligne), puis copier le **Client ID** et le **Client Secret**.
+3. Lancer le serveur avec ces valeurs :
+
+```sh
+R6_DISCORD_CLIENT_ID=… R6_DISCORD_CLIENT_SECRET=… go run ./cmd/r6server serve
+```
+
+`R6_CREATORS` (identifiants Discord séparés par des virgules) limite la création d'espaces pendant la bêta. Pour essayer sans Discord, sur ta machine seulement : `serve -dev-login`, puis ouvrir `http://127.0.0.1:8080/auth/dev?name=Coach`.
 
 Sous Windows, les replays sont dans le dossier `MatchReplay` du jeu, avec un sous-dossier par match.
 

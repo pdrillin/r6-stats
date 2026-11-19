@@ -16,26 +16,59 @@ import (
 // at most a few dozen with overtime and rehosts.
 const MaxFilesPerUpload = 64
 
-// Handler serves the server's API:
+// Handler serves the server: sign-in, and the API.
 //
-//	GET  /api/spaces                  the spaces
-//	POST /api/spaces                  create one: {"name": …, "kind": "team"|"league"}
-//	POST /api/spaces/{id}/replays     send replays (multipart, field "files")
-//	     /api/spaces/{id}/…           the statistics API of the space (package api)
+//	GET  /auth/login?next=/…            sign in with Discord
+//	GET  /auth/callback                 Discord's answer
+//	POST /auth/logout                   sign out
+//	GET  /auth/dev?name=…               sign in without Discord (Config.DevLogin)
 //
-// There is no authentication yet: the server must only listen on the local
-// machine until accounts exist.
-func (s *Server) Handler() http.Handler {
+//	GET  /api/me                        the signed-in user
+//	GET  /api/spaces                    their spaces, with their role
+//	POST /api/spaces                    create one: {"name", "kind": "team"|"league"}
+//	GET  /api/invitations/{token}       what an invitation link leads to
+//	POST /api/invitations/{token}/accept
+//
+// In a space (members only; anyone else gets 404, as if it did not exist):
+//
+//	POST   /api/spaces/{id}/replays               send replays (multipart, field "files")
+//	GET    /api/spaces/{id}/members
+//	PUT    /api/spaces/{id}/members/{user}        {"role"}           manager
+//	DELETE /api/spaces/{id}/members/{user}        manager, or oneself to leave
+//	GET    /api/spaces/{id}/invitations                              manager
+//	POST   /api/spaces/{id}/invitations           {"role"}           manager
+//	DELETE /api/spaces/{id}/invitations/{inv}                        manager
+//	       /api/spaces/{id}/…                     statistics (package api); writes: manager
+func (s *Server) Handler(cfg Config) http.Handler {
+	s.cfg = cfg
 	mux := http.NewServeMux()
-	mux.HandleFunc("GET /api/spaces", func(w http.ResponseWriter, r *http.Request) {
-		spaces, err := s.Spaces()
+
+	mux.HandleFunc("GET /auth/login", s.login)
+	mux.HandleFunc("GET /auth/callback", s.callback)
+	mux.HandleFunc("POST /auth/logout", s.logout)
+	if cfg.DevLogin {
+		mux.HandleFunc("GET /auth/dev", s.devLogin)
+	}
+
+	mux.HandleFunc("GET /api/me", s.signedIn(func(w http.ResponseWriter, r *http.Request, u User) {
+		writeJSON(w, http.StatusOK, struct {
+			User
+			CanCreate bool `json:"canCreate"`
+		}{u, s.canCreate(u)})
+	}))
+	mux.HandleFunc("GET /api/spaces", s.signedIn(func(w http.ResponseWriter, r *http.Request, u User) {
+		spaces, err := s.SpacesOf(u.ID)
 		if err != nil {
 			serverError(w, err)
 			return
 		}
 		writeJSON(w, http.StatusOK, spaces)
-	})
-	mux.HandleFunc("POST /api/spaces", func(w http.ResponseWriter, r *http.Request) {
+	}))
+	mux.HandleFunc("POST /api/spaces", s.signedIn(func(w http.ResponseWriter, r *http.Request, u User) {
+		if !s.canCreate(u) {
+			http.Error(w, "only invited people can create spaces during the beta", http.StatusForbidden)
+			return
+		}
 		var body struct {
 			Name string    `json:"name"`
 			Kind SpaceKind `json:"kind"`
@@ -43,21 +76,102 @@ func (s *Server) Handler() http.Handler {
 		if !readJSON(w, r, &body) {
 			return
 		}
-		sp, err := s.CreateSpace(body.Name, body.Kind)
+		sp, err := s.CreateSpace(body.Name, body.Kind, u.ID)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusBadRequest)
 			return
 		}
 		writeJSON(w, http.StatusCreated, sp)
-	})
-	mux.HandleFunc("POST /api/spaces/{id}/replays", s.upload)
-	mux.HandleFunc("/api/spaces/{id}/", func(w http.ResponseWriter, r *http.Request) {
-		id := r.PathValue("id")
-		v, err := s.view(id)
-		if errors.Is(err, ErrNotFound) {
-			http.Error(w, "space not found", http.StatusNotFound)
+	}))
+	mux.HandleFunc("GET /api/invitations/{token}", s.signedIn(func(w http.ResponseWriter, r *http.Request, u User) {
+		info, err := s.Invitation(r.PathValue("token"))
+		if errors.Is(err, ErrExpired) {
+			http.Error(w, err.Error(), http.StatusGone)
 			return
 		}
+		if err != nil {
+			serverError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, info)
+	}))
+	mux.HandleFunc("POST /api/invitations/{token}/accept", s.signedIn(func(w http.ResponseWriter, r *http.Request, u User) {
+		info, err := s.Accept(r.PathValue("token"), u.ID)
+		if errors.Is(err, ErrExpired) {
+			http.Error(w, err.Error(), http.StatusGone)
+			return
+		}
+		if err != nil {
+			serverError(w, err)
+			return
+		}
+		s.forget(info.SpaceID)
+		writeJSON(w, http.StatusOK, info)
+	}))
+
+	mux.HandleFunc("POST /api/spaces/{id}/replays", s.inSpace(Player, s.upload))
+	mux.HandleFunc("GET /api/spaces/{id}/members", s.inSpace(Player, func(w http.ResponseWriter, r *http.Request, u User, role Role) {
+		members, err := s.Members(r.PathValue("id"))
+		if err != nil {
+			serverError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, members)
+	}))
+	mux.HandleFunc("PUT /api/spaces/{id}/members/{user}", s.inSpace(Manager, func(w http.ResponseWriter, r *http.Request, u User, role Role) {
+		var body struct {
+			Role Role `json:"role"`
+		}
+		if !readJSON(w, r, &body) {
+			return
+		}
+		memberError(w, s.SetRole(r.PathValue("id"), r.PathValue("user"), body.Role))
+	}))
+	mux.HandleFunc("DELETE /api/spaces/{id}/members/{user}", s.inSpace(Player, func(w http.ResponseWriter, r *http.Request, u User, role Role) {
+		target := r.PathValue("user")
+		if target != u.ID && role != Manager {
+			http.Error(w, "only managers remove other members", http.StatusForbidden)
+			return
+		}
+		memberError(w, s.RemoveMember(r.PathValue("id"), target))
+	}))
+	mux.HandleFunc("GET /api/spaces/{id}/invitations", s.inSpace(Manager, func(w http.ResponseWriter, r *http.Request, u User, role Role) {
+		list, err := s.Invitations(r.PathValue("id"))
+		if err != nil {
+			serverError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, list)
+	}))
+	mux.HandleFunc("POST /api/spaces/{id}/invitations", s.inSpace(Manager, func(w http.ResponseWriter, r *http.Request, u User, role Role) {
+		var body struct {
+			Role Role `json:"role"`
+		}
+		if !readJSON(w, r, &body) {
+			return
+		}
+		inv, err := s.Invite(r.PathValue("id"), u.ID, body.Role)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, http.StatusCreated, struct {
+			Invitation
+			URL string `json:"url"`
+		}{inv, s.cfg.BaseURL + "/invite/" + inv.Token})
+	}))
+	mux.HandleFunc("DELETE /api/spaces/{id}/invitations/{inv}", s.inSpace(Manager, func(w http.ResponseWriter, r *http.Request, u User, role Role) {
+		memberError(w, s.Revoke(r.PathValue("id"), r.PathValue("inv")))
+	}))
+	mux.HandleFunc("/api/spaces/{id}/", s.inSpace(Player, func(w http.ResponseWriter, r *http.Request, u User, role Role) {
+		// Reading is for members, changing labels and settings for
+		// managers.
+		if r.Method != http.MethodGet && r.Method != http.MethodHead && role != Manager {
+			http.Error(w, "only managers change the space", http.StatusForbidden)
+			return
+		}
+		id := r.PathValue("id")
+		v, err := s.view(id)
 		if err != nil {
 			serverError(w, err)
 			return
@@ -67,28 +181,89 @@ func (s *Server) Handler() http.Handler {
 		r2.URL.Path = "/api/" + strings.TrimPrefix(r.URL.Path, "/api/spaces/"+id+"/")
 		r2.URL.RawPath = ""
 		v.ServeHTTP(w, r2)
-	})
+	}))
 	mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 	})
-	return mux
+	return s.withUser(s.sameSite(mux))
+}
+
+// sameSite refuses changes requested by another site: a browser tells the
+// origin of the page that sends a request. GET requests change nothing.
+func (s *Server) sameSite(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet && r.Method != http.MethodHead {
+			if site := r.Header.Get("Sec-Fetch-Site"); site == "cross-site" || site == "same-site" {
+				http.Error(w, "cross-site request refused", http.StatusForbidden)
+				return
+			}
+			if o := r.Header.Get("Origin"); o != "" && s.cfg.BaseURL != "" && o != s.cfg.BaseURL {
+				http.Error(w, "cross-site request refused", http.StatusForbidden)
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// signedIn lets through signed-in users only.
+func (s *Server) signedIn(h func(http.ResponseWriter, *http.Request, User)) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		u, ok := currentUser(r)
+		if !ok {
+			http.Error(w, "sign in first", http.StatusUnauthorized)
+			return
+		}
+		h(w, r, u)
+	}
+}
+
+// inSpace lets through members of the space {id} with at least the role
+// need. Non-members get 404: a space's existence is private too.
+func (s *Server) inSpace(need Role, h func(http.ResponseWriter, *http.Request, User, Role)) http.HandlerFunc {
+	return s.signedIn(func(w http.ResponseWriter, r *http.Request, u User) {
+		role, err := s.role(r.PathValue("id"), u.ID)
+		if err != nil {
+			serverError(w, err)
+			return
+		}
+		if role == "" {
+			http.Error(w, "space not found", http.StatusNotFound)
+			return
+		}
+		if need == Manager && role != Manager {
+			http.Error(w, "managers only", http.StatusForbidden)
+			return
+		}
+		h(w, r, u, role)
+	})
+}
+
+// memberError answers a member management call.
+func memberError(w http.ResponseWriter, err error) {
+	switch {
+	case err == nil:
+		w.WriteHeader(http.StatusNoContent)
+	case errors.Is(err, ErrNotFound):
+		http.Error(w, "not found", http.StatusNotFound)
+	case errors.Is(err, ErrLastManager):
+		http.Error(w, err.Error(), http.StatusConflict)
+	default:
+		if strings.HasPrefix(err.Error(), "unknown role") {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		serverError(w, err)
+	}
 }
 
 // upload receives the replays of a match. Files are read one after the other
 // and decoded a few at a time, so memory stays bounded whatever the number
 // of files.
-func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
+func (s *Server) upload(w http.ResponseWriter, r *http.Request, u User, _ Role) {
 	id := r.PathValue("id")
-	if ok, err := s.spaceExists(id); err != nil {
-		serverError(w, err)
-		return
-	} else if !ok {
-		http.Error(w, "space not found", http.StatusNotFound)
-		return
-	}
-	// A multipart form is not a "simple" cross-origin request only when
-	// sent with fetch and a custom header; plain HTML forms can post it.
-	// Require the header the interface sends, so another site cannot.
+	// Plain HTML forms can post multipart from any site: require the
+	// header the interface sends, which a form cannot add.
 	if r.Header.Get("X-R6-Upload") != "1" {
 		http.Error(w, "missing X-R6-Upload header", http.StatusForbidden)
 		return
@@ -148,7 +323,7 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request) {
 		go func() {
 			defer wg.Done()
 			defer func() { <-sem }()
-			res, err := s.Add(id, Upload{Name: name, Data: data})
+			res, err := s.Add(id, Upload{Name: name, Data: data, By: u.ID})
 			mu.Lock()
 			defer mu.Unlock()
 			if err != nil && failed == nil {

@@ -18,16 +18,26 @@ import (
 )
 
 const usage = `usage:
-  r6server [-data dir] serve [-addr host:port] [-web dir]
+  r6server [-data dir] serve [-addr host:port] [-url base-url] [-web dir] [-dev-login]
                                        serve the API (and the built interface)
   r6server [-data dir] spaces          list the spaces
   r6server [-data dir] create <name> [team|league]
                                        create a space, print its id
+  r6server [-data dir] invite <space-id> [manager|player]
+                                       print an invitation link to the space
   r6server [-data dir] import <space-id> <dir>...
                                        send every .rec file under the folders
 
 -data is the folder of the database and the raw replays (default r6-data).
-There is no authentication yet: serve only listens on the local machine.
+
+Sign-in with Discord reads the environment:
+  R6_DISCORD_CLIENT_ID, R6_DISCORD_CLIENT_SECRET   the OAuth2 application
+  R6_CREATORS   comma-separated Discord ids allowed to create spaces
+                (closed beta; empty lets everyone signed in create spaces)
+The Discord application must list <base-url>/auth/callback as redirect.
+
+-dev-login signs in by name, without Discord, at /auth/dev?name=…: only on
+the local machine. Off the local machine, serve requires an https -url.
 `
 
 func main() {
@@ -57,6 +67,8 @@ func main() {
 		err = create(s, args[1:])
 	case "import":
 		err = importDirs(s, args[1:])
+	case "invite":
+		err = invite(s, args[1:])
 	default:
 		fl.Usage()
 		os.Exit(2)
@@ -69,17 +81,50 @@ func main() {
 func serve(s *server.Server, args []string) error {
 	fl := flag.NewFlagSet("serve", flag.ExitOnError)
 	addr := fl.String("addr", "127.0.0.1:8080", "address to listen on")
+	base := fl.String("url", "", "address users reach the server at (default http://<addr>)")
 	web := fl.String("web", "", "folder of the built web interface")
+	dev := fl.Bool("dev-login", false, "sign in by name without Discord (local machine only)")
 	fl.Parse(args)
 
-	// Without accounts, anyone reaching the server could read and write
-	// every space: refuse anything but the local machine.
+	cfg := server.Config{
+		BaseURL: strings.TrimSuffix(*base, "/"),
+		Discord: server.Discord{
+			ClientID:     os.Getenv("R6_DISCORD_CLIENT_ID"),
+			ClientSecret: os.Getenv("R6_DISCORD_CLIENT_SECRET"),
+		},
+		DevLogin: *dev,
+	}
+	if cfg.BaseURL == "" {
+		cfg.BaseURL = "http://" + *addr
+	}
+	for _, id := range strings.Split(os.Getenv("R6_CREATORS"), ",") {
+		if id = strings.TrimSpace(id); id != "" {
+			cfg.Creators = append(cfg.Creators, id)
+		}
+	}
+
+	// Off the local machine, sessions must travel over HTTPS and the
+	// development sign-in, which trusts any name, must be off.
 	host, _, err := net.SplitHostPort(*addr)
 	if err != nil {
 		return err
 	}
 	if ip := net.ParseIP(host); host != "localhost" && (ip == nil || !ip.IsLoopback()) {
-		return fmt.Errorf("refusing to listen on %s: there is no authentication yet, use 127.0.0.1", host)
+		if *dev {
+			return fmt.Errorf("-dev-login only works on the local machine")
+		}
+		if !strings.HasPrefix(cfg.BaseURL, "https://") {
+			return fmt.Errorf("listening on %s needs an https -url (put the server behind an HTTPS proxy)", host)
+		}
+	}
+	if cfg.Discord.ClientID == "" && !*dev {
+		log.Printf("warning: R6_DISCORD_CLIENT_ID is not set, nobody can sign in")
+	}
+	if cfg.Discord.ClientID != "" && cfg.Discord.ClientSecret == "" {
+		return fmt.Errorf("R6_DISCORD_CLIENT_SECRET is not set")
+	}
+	if len(cfg.Creators) == 0 {
+		log.Printf("R6_CREATORS is empty: everyone signed in can create spaces")
 	}
 
 	if n, err := s.Redecode(); err != nil {
@@ -89,11 +134,13 @@ func serve(s *server.Server, args []string) error {
 	}
 
 	mux := http.NewServeMux()
-	mux.Handle("/api/", s.Handler())
+	h := s.Handler(cfg)
+	mux.Handle("/api/", h)
+	mux.Handle("/auth/", h)
 	if *web != "" {
 		mux.Handle("/", http.FileServer(spaFS{http.Dir(*web)}))
 	}
-	log.Printf("listening on http://%s", *addr)
+	log.Printf("listening on %s (%s)", *addr, cfg.BaseURL)
 	return http.ListenAndServe(*addr, mux)
 }
 
@@ -129,11 +176,45 @@ func create(s *server.Server, args []string) error {
 	if len(args) == 2 {
 		kind = server.SpaceKind(args[1])
 	}
-	sp, err := s.CreateSpace(args[0], kind)
+	sp, err := s.CreateSpace(args[0], kind, "")
 	if err != nil {
 		return err
 	}
 	fmt.Println(sp.ID)
+	return nil
+}
+
+// invite prints an invitation link: the way to give a space created from the
+// command line its first manager.
+func invite(s *server.Server, args []string) error {
+	fl := flag.NewFlagSet("invite", flag.ExitOnError)
+	base := fl.String("url", "http://127.0.0.1:8080", "address users reach the server at")
+	fl.Parse(args)
+	args = fl.Args()
+	if len(args) < 1 || len(args) > 2 {
+		fmt.Fprint(os.Stderr, usage)
+		os.Exit(2)
+	}
+	role := server.Manager
+	if len(args) == 2 {
+		role = server.Role(args[1])
+	}
+	known := false
+	list, err := s.Spaces()
+	if err != nil {
+		return err
+	}
+	for _, sp := range list {
+		known = known || sp.ID == args[0]
+	}
+	if !known {
+		return fmt.Errorf("no space %s", args[0])
+	}
+	inv, err := s.Invite(args[0], "", role)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%s/invite/%s\n(%s, valid until %s)\n", strings.TrimSuffix(*base, "/"), inv.Token, role, inv.ExpiresAt)
 	return nil
 }
 
