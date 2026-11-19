@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { kindLabels, put, useApi, type MatchDetail, type MatchKind, type Round } from "../api";
+import { kindLabels, useApi, useSend, type MatchDetail, type MatchKind, type Round } from "../api";
+import { useWhere } from "../space";
 import { RoundTimeline } from "../components/charts";
 import { Loading } from "../components/Loading";
 import { PlayerTable, teamPath } from "../components/PlayerTable";
@@ -51,15 +52,25 @@ function Match({ m }: { m: MatchDetail }) {
 
 /** The kind of the match, which only the user can tell. */
 function KindPicker({ m }: { m: MatchDetail }) {
+  const send = useSend();
+  const { canEdit } = useWhere();
   const [error, setError] = useState<string>();
   const [saving, setSaving] = useState(false);
   const change = (kind: MatchKind) => {
     setSaving(true);
     setError(undefined);
-    put(`matches/${encodeURIComponent(m.id)}/kind`, { kind })
+    send("PUT", `matches/${encodeURIComponent(m.id)}/kind`, { kind })
       .catch((e: unknown) => setError(String(e)))
       .finally(() => setSaving(false));
   };
+  if (!canEdit) {
+    return (
+      <div className="filters">
+        <span className="muted">Type de match</span>
+        <span className={`kind-badge ${m.kind}`}>{kindLabels[m.kind]}</span>
+      </div>
+    );
+  }
   return (
     <div className="filters">
       <span className="muted" id="kind-label">

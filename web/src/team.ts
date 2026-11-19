@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
-import { put, useApi, type MatchSummary, type Settings, type Team } from "./api";
+import { useWhere } from "./space";
+import { useApi, useSend, type MatchSummary, type Settings, type Team } from "./api";
 
 // The team the user plays in, kept by the server with the rest of the user's
 // data. Earlier versions kept it in this browser: such a choice is sent to
@@ -22,19 +23,22 @@ function takeLegacy(): string {
  */
 export function useMyTeam(): [string | undefined, (name: string) => void, string | undefined] {
   const settings = useApi<Settings>("settings");
+  const send = useSend();
   const [error, setError] = useState<string>();
   const set = (name: string) => {
     setError(undefined);
-    put("settings", { myTeam: name }).catch((e: unknown) => setError(String(e)));
+    send("PUT", "settings", { myTeam: name }).catch((e: unknown) => setError(String(e)));
   };
   const team = settings.data?.myTeam;
+  const { server } = useWhere();
   useEffect(() => {
-    if (team === "") {
+    // Only r6rec serve ever kept the team in the browser.
+    if (team === "" && !server) {
       const legacy = takeLegacy();
       if (legacy) set(legacy);
     }
     // Only the team matters: set always does the same thing.
-  }, [team]);
+  }, [team, server]);
   return [team, set, error ?? settings.error];
 }
 

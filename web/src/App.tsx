@@ -1,5 +1,8 @@
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { filterSearch } from "./components/MapFilter";
+import { MembersPage } from "./pages/MembersPage";
+import { UploadPage } from "./pages/UploadPage";
+import { signOut, useWhere } from "./space";
 import { ComparePage } from "./pages/ComparePage";
 import { HomePage } from "./pages/HomePage";
 import { MatchPage } from "./pages/MatchPage";
@@ -15,6 +18,7 @@ export function App() {
   // The map filter follows the reader from page to page.
   const filters = filterSearch(useLocation().search);
   const keep = (path: string) => path + filters;
+  const { server, space, me } = useWhere();
   return (
     <>
       <header className="topbar">
@@ -30,7 +34,24 @@ export function App() {
           <NavLink to={keep("/matches")}>Matchs</NavLink>
           <NavLink to={keep("/rooms")}>Pièces</NavLink>
           <NavLink to={keep("/compare")}>Comparer</NavLink>
+          {server && (
+            <>
+              <NavLink to="/upload">Envoyer</NavLink>
+              <NavLink to="/members">Membres</NavLink>
+            </>
+          )}
         </nav>
+        {server && space && (
+          <div className="account">
+            <a href="/" className="space-switch" title="Changer d'espace">
+              {space.name}
+            </a>
+            {me && <span className="muted">{me.name}</span>}
+            <button className="link-button" onClick={signOut}>
+              Déconnexion
+            </button>
+          </div>
+        )}
       </header>
       <main>
         <Routes>
@@ -44,6 +65,8 @@ export function App() {
           <Route path="/matches/:id" element={<MatchPage />} />
           <Route path="/rooms" element={<RoomsPage />} />
           <Route path="/compare" element={<ComparePage />} />
+          {server && <Route path="/upload" element={<UploadPage />} />}
+          {server && <Route path="/members" element={<MembersPage />} />}
           <Route path="*" element={<p className="error">Page introuvable.</p>} />
         </Routes>
       </main>

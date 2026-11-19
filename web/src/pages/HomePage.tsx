@@ -1,3 +1,4 @@
+import { Link } from "react-router-dom";
 import type { ReactNode } from "react";
 import { useApi, type MatchSummary, type Overview, type Player, type Team } from "../api";
 import { Loading } from "../components/Loading";
@@ -6,6 +7,7 @@ import { clutchTotal, playerPath } from "../components/PlayerTable";
 import { RateBars } from "../components/RateBars";
 import { Table } from "../components/Table";
 import { Ratio, RecCount, RecRatio, date, diff, rate, sideLabel } from "../format";
+import { useWhere } from "../space";
 import { results, scoutPath, siteSides, useMyTeam } from "../team";
 
 /** Below this many rounds a site is left out of strengths and weaknesses. */
@@ -15,6 +17,7 @@ export function HomePage() {
   const overview = useOverview();
   const matches = useApi<MatchSummary[]>("matches");
   const [mine, setMine, teamError] = useMyTeam();
+  const { canEdit } = useWhere();
   const keep = useMatchFilter();
   return (
     <Loading state={overview}>
@@ -24,14 +27,17 @@ export function HomePage() {
             if (teamError) return <p className="error">Impossible d'enregistrer l'équipe : {teamError}</p>;
             if (mine === undefined) return <p className="muted">Chargement…</p>;
             const t = o.stats.teams.find((x) => x.name === mine);
+            if (all.length === 0) return <Empty />;
             if (!mine) return <Picker o={o} onPick={setMine} />;
             return (
               <>
                 <h1>
                   {mine}
-                  <button className="link-button h1-action" onClick={() => setMine("")}>
-                    Changer d'équipe
-                  </button>
+                  {canEdit && (
+                    <button className="link-button h1-action" onClick={() => setMine("")}>
+                      Changer d'équipe
+                    </button>
+                  )}
                 </h1>
                 <MapFilter maps={o.maps} />
                 {t ? (
@@ -48,13 +54,43 @@ export function HomePage() {
   );
 }
 
+/** A space without matches yet. */
+function Empty() {
+  const { server } = useWhere();
+  return (
+    <>
+      <h1>Mon équipe</h1>
+      <p className="muted">Aucun match pour l'instant.</p>
+      {server && (
+        <p>
+          <Link to="/upload" className="button">
+            Envoyer des replays
+          </Link>
+        </p>
+      )}
+    </>
+  );
+}
+
 function Picker({ o, onPick }: { o: Overview; onPick: (team: string) => void }) {
+  const { canEdit, server } = useWhere();
+  if (!canEdit) {
+    return (
+      <>
+        <h1>Mon équipe</h1>
+        <p className="muted">
+          Un responsable de l'espace doit d'abord indiquer quelle équipe est la vôtre : cette page deviendra son
+          tableau de bord.
+        </p>
+      </>
+    );
+  }
   return (
     <>
       <h1>Mon équipe</h1>
       <p className="muted">
-        Choisis ton équipe : cette page devient son tableau de bord. Le choix est enregistré avec tes autres données
-        (types des matchs) sur cet ordinateur.
+        Choisis ton équipe : cette page devient son tableau de bord.{" "}
+        {server ? "Le choix vaut pour tous les membres de l'espace." : "Le choix est enregistré sur cet ordinateur."}
       </p>
       <div className="team-picker">
         {o.stats.teams.map((t) => (

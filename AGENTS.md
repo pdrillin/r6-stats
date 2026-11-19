@@ -14,7 +14,7 @@ Produit prévu, pas encore construit :
 
 L'app Windows locale complète (interface embarquée, sans serveur) a été écartée : elle ne servirait qu'à celui qui l'installe, alors que coach et coéquipiers doivent voir les stats.
 
-Le parsing se fait côté serveur : un changement de saison ne demande qu'une mise à jour du serveur. Aujourd'hui existent le parser Go, le regroupement en matchs, les stats, un outil en ligne de commande avec une API JSON locale (`r6rec serve`, lit un dossier de replays), l'interface web, et le serveur partagé (`r6server` : espaces, envoi des replays, base SQLite, connexion Discord, rôles, invitations), dont l'interface n'est pas encore branchée.
+Le parsing se fait côté serveur : un changement de saison ne demande qu'une mise à jour du serveur. Aujourd'hui existent le parser Go, le regroupement en matchs, les stats, un outil en ligne de commande avec une API JSON locale (`r6rec serve`, lit un dossier de replays), l'interface web, et le serveur partagé (`r6server` : espaces, envoi des replays, base SQLite, connexion Discord, rôles, invitations) avec son interface (accueil, invitations, envoi par glisser-déposer, membres). Reste la mise en ligne.
 
 ## Utilisations visées
 
@@ -124,7 +124,7 @@ npm run dev     # http://localhost:5173, /api relayé vers r6rec serve (port 808
 npm run build   # vérifie les types puis produit web/dist
 ```
 
-En développement, lancer `r6rec serve Replays` d'un côté et `npm run dev` de l'autre. Pour servir l'interface construite sans Node : `r6rec serve -web web/dist Replays`.
+En développement, lancer `r6rec serve Replays` (ou `r6server serve -dev-login -url http://localhost:5173`, pour que la connexion revienne par Vite) d'un côté et `npm run dev` de l'autre. Pour servir l'interface construite sans Node : `r6rec serve -web web/dist Replays` ou `r6server serve -web web/dist`.
 
 La CI (`.github/workflows/test.yml`) lance gofmt, vet, les tests et la compilation Windows, et un job séparé construit l'interface web. `gofmt -l .` doit rester vide.
 
@@ -156,6 +156,10 @@ Organisation : `Replays/<série>/<n> - <map>/Match-<date>-<id>/Match-...-RNN.rec
 
 Interface web :
 
+- **Deux modes, une seule application.** Au démarrage hors espace, `Root` appelle `/api/me` : `r6rec serve` répond 404 (pas de comptes, les pages de stats tournent à la racine, `LOCAL` dans `space.ts`) ; `r6server` répond 200 ou 401 (accueil avec connexion et liste des espaces `LobbyPage`, invitation `/invite/<lien>` `InvitePage`).
+- **Dans un espace** (`/s/<id>/…`), `main.tsx` lance l'application avec `/s/<id>` comme `basename` : les liens et routes des pages de stats restent identiques dans les deux modes, et changer d'espace recharge la page. `SpaceShell` vérifie la session (sinon retour à la connexion Discord) et l'appartenance, puis fournit `WhereContext` : préfixe de l'API (`spaces/<id>/`), espace, rôle, utilisateur. `useApi(path)` et `useSend()` résolvent les chemins relativement à l'espace ; un chemin qui commence par `/` est global (`/me`, `/spaces`, `/invitations/…`).
+- **Rôle** : `canEdit` (responsable, ou mode local) affiche le choix de l'équipe et le sélecteur de type de match ; un joueur voit le type sans pouvoir le changer, et on lui indique qu'un responsable doit choisir l'équipe.
+- **Envoyer** (`/upload`, r6server) : glisser-déposer de fichiers ou de dossiers entiers (lecture récursive via `webkitGetAsEntry`), ou choix d'un dossier ; seuls les `.rec` partent, par lots de 20 fichiers ou 150 Mo, avec progression ; compte rendu ajoutés / déjà présents / illisibles. **Membres** (`/members`) : rôles, retrait, départ, liens d'invitation (affichés une seule fois, copiables), révocation.
 - Pages : « Mon équipe » (`/`, tableau de bord de l'équipe choisie : bilan, derniers matchs, adversaires, rounds par map, points forts et sites à travailler, joueurs), fiche adversaire (`/teams/{nom}/scout` : maps, choix de site en défense, attaque par site, joueurs à surveiller, opérateurs par côté, rythme, pièces si une map est choisie, situations), joueurs (`/players`), équipes, détail d'une équipe (côtés, maps, sites, situations), matchs, détail d'un match (rounds dépliables avec kill feed et opérateurs), détail d'un joueur (cartes, ventilation par côté/map/opérateur, pièces), pièces par map, comparaison de deux joueurs (`/compare?a=…&b=…`).
 - Comparaison : stats ramenées au nombre de rounds de chacun (ou en pourcentage), valeur la plus favorable en gras (`lowerIsBetter` pour les morts et la première mort), barres normalisées ligne par ligne, graphiques « moment du round » sur la même échelle. Calculée côté client à partir de `/api/overview`, donc le filtre par map s'applique.
 - Textes en français. Thème clair ou sombre selon le système. Pas de bibliothèque d'UI : `src/style.css` et un composant `Table` triable.
@@ -230,7 +234,7 @@ Entiers en little-endian sauf mention contraire.
 4. **Serveur partagé**, avant l'app Windows (voir « Hébergement et stockage ») :
    1. **fait** : cœur testable en local (`server/`, `cmd/r6server`) : base SQLite, stockage des bruts, envoi et décodage des matchs, espaces, API propre à chaque espace. Corpus : 84 rounds en 12 s, base de 508 Ko contre 578 Mo de bruts, stats identiques à `r6rec` ;
    2. **fait** : connexion Discord, sessions, rôles, invitations, contrôle d'accès, bêta fermée (`R6_CREATORS`), connexion de développement. Testé avec un faux Discord ; reste à l'essayer avec une vraie application Discord ;
-   3. interface : connexion, choix de l'espace, envoi par glisser-déposer, membres (l'interface actuelle appelle encore `/api/…` sans espace : elle devra préfixer `/api/spaces/{id}`) ;
+   3. **fait** : interface : connexion, liste et création des espaces, invitations, envoi par glisser-déposer (dossiers compris), membres et rôles ; les pages de stats tournent dans l'espace ;
    4. mise en ligne (VPS, domaine, HTTPS avec Caddy, sauvegardes) : l'utilisateur fournit l'hébergement, le domaine et l'application Discord.
 5. **App Windows légère** : surveillance de `MatchReplay`, archive locale, envoi automatique à l'espace.
 6. **Ligue** : espace à plusieurs équipes, classements, publication facultative.

@@ -1,6 +1,7 @@
 // Types mirror the JSON written by the Go packages api, stats and rec.
 
 import { useEffect, useState } from "react";
+import { useWhere } from "./space";
 
 /** How often something happened, and how often the round was won. */
 export interface Rec {
@@ -216,12 +217,37 @@ export function invalidate() {
 }
 
 /**
+ * The API path for path: relative to the current space, or global when it
+ * starts with "/" (/me, /spaces).
+ */
+function resolve(base: string, path: string): string {
+  return path.startsWith("/") ? path.slice(1) : base + path;
+}
+
+/** An answer that is not 2xx. */
+export class ApiError extends Error {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+async function check(res: Response): Promise<Response> {
+  if (!res.ok) throw new ApiError(res.status, `${res.status} ${(await res.text()).trim()}`);
+  return res;
+}
+
+/**
  * Fetches a JSON endpoint of the API. While a new path loads, the previous
  * data is kept and loading is set, so the page does not flash.
  */
-export function useApi<T>(path: string): State<T> {
-  const [state, setState] = useState<State<T>>(() =>
-    cache.has(path) ? { data: cache.get(path) as T } : { loading: true },
+export function useApi<T>(path: string): State<T> & { status?: number } {
+  const { base } = useWhere();
+  const full = resolve(base, path);
+  const [state, setState] = useState<State<T> & { status?: number }>(() =>
+    cache.has(full) ? { data: cache.get(full) as T } : { loading: true },
   );
   const [gen, setGen] = useState(generation);
   useEffect(() => {
@@ -232,38 +258,44 @@ export function useApi<T>(path: string): State<T> {
     };
   }, []);
   useEffect(() => {
-    if (cache.has(path)) {
-      setState({ data: cache.get(path) as T });
+    if (cache.has(full)) {
+      setState({ data: cache.get(full) as T });
       return;
     }
     let live = true;
     setState((s) => ({ data: s.data, loading: true }));
-    fetch("/api/" + path)
-      .then(async (res) => {
-        if (!res.ok) throw new Error(`${res.status} ${(await res.text()).trim()}`);
-        return (await res.json()) as T;
-      })
+    fetch("/api/" + full)
+      .then(check)
+      .then((res) => res.json() as Promise<T>)
       .then(
         (data) => {
-          cache.set(path, data);
+          cache.set(full, data);
           if (live) setState({ data });
         },
-        (err: unknown) => live && setState({ error: String(err) }),
+        (err: unknown) =>
+          live && setState({ error: String(err), status: err instanceof ApiError ? err.status : undefined }),
       );
     return () => {
       live = false;
     };
-  }, [path, gen]);
+  }, [full, gen]);
   return state;
 }
 
-/** Sends a change to the API, then refreshes every page. */
-export async function put(path: string, body: unknown): Promise<void> {
-  const res = await fetch("/api/" + path, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`${res.status} ${(await res.text()).trim()}`);
-  invalidate();
+/**
+ * Sends a change to the API (path as for useApi), then refreshes every page.
+ * Returns the decoded answer, if any.
+ */
+export function useSend() {
+  const { base } = useWhere();
+  return async <T = unknown>(method: "POST" | "PUT" | "DELETE", path: string, body?: unknown): Promise<T> => {
+    const res = await fetch("/api/" + resolve(base, path), {
+      method,
+      headers: body === undefined ? undefined : { "Content-Type": "application/json" },
+      body: body === undefined ? undefined : JSON.stringify(body),
+    }).then(check);
+    invalidate();
+    const text = await res.text();
+    return (text ? JSON.parse(text) : undefined) as T;
+  };
 }

@@ -909,3 +909,158 @@ h3 {
   color: var(--text);
   border-color: var(--accent);
 }
+
+/* Accounts and spaces (r6server) */
+.account {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+  white-space: nowrap;
+  font-size: 0.9rem;
+}
+.space-switch {
+  font-weight: 600;
+  padding: 0.25rem 0.6rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+}
+main.narrow {
+  max-width: 44rem;
+}
+.lobby-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem 1rem;
+}
+.space-list {
+  list-style: none;
+  padding: 0;
+  margin: 1rem 0;
+  display: grid;
+  gap: 0.5rem;
+}
+.space-card {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.85rem 1rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.space-card:hover,
+.space-card:focus-visible {
+  border-color: var(--accent);
+  color: inherit;
+  outline: none;
+}
+.create-space {
+  margin-top: 2rem;
+}
+input:not([type="file"]) {
+  font: inherit;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.3rem 0.6rem;
+  min-width: 14rem;
+}
+input:focus-visible,
+select:focus-visible,
+.button:focus-visible,
+.button:focus-within {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.button {
+  display: inline-block;
+  font: inherit;
+  font-size: 0.95rem;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.4rem 0.9rem;
+  cursor: pointer;
+}
+.button:hover {
+  border-color: var(--accent);
+  color: var(--text);
+}
+.button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #111;
+  font-weight: 600;
+}
+.button:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+.dropzone {
+  margin: 1rem 0;
+  padding: 2rem 1rem;
+  text-align: center;
+  border: 2px dashed var(--border);
+  border-radius: 10px;
+  background: var(--panel);
+}
+.dropzone p {
+  margin: 0.3rem 0;
+}
+.dropzone .filters {
+  justify-content: center;
+}
+.dropzone.over {
+  border-color: var(--accent);
+  background: var(--panel-2);
+}
+.upload-progress {
+  display: grid;
+  gap: 0.4rem;
+  margin: 1rem 0;
+}
+.upload-result {
+  margin: 1rem 0;
+  padding: 0.75rem 1rem;
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+.member {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.avatar {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: inline-grid;
+  place-items: center;
+  font-size: 0.8rem;
+  font-weight: 700;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  flex: none;
+}
+.invite-link input {
+  flex: 1;
+  min-width: 0;
+  font-family: ui-monospace, monospace;
+  font-size: 0.85rem;
+}
+.invite-link .filters {
+  flex-wrap: nowrap;
+}
+@media (max-width: 900px) {
+  .account > .muted {
+    display: none;
+  }
+  .account {
+    gap: 0.5rem;
+  }
+}
