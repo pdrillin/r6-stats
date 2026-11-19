@@ -4,6 +4,7 @@ Replays/
 
 # Binaires compilés
 /r6rec
+/r6server
 *.exe
 /dist/
 
@@ -15,3 +16,6 @@ Replays/
 .idea/
 .DS_Store
 Thumbs.db
+
+# Données du serveur partagé (r6server -data, par défaut r6-data)
+r6-data/

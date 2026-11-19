@@ -58,6 +58,18 @@ Le type de chaque match (pracc ou officiel) et ton équipe se choisissent dans l
 
 Chaque replay n'est décodé qu'une fois : le résultat est gardé dans le dossier de cache de l'utilisateur (`r6rec cache info` pour le voir, `r6rec cache clear` pour le vider, `R6STATS_CACHE=off` pour s'en passer).
 
+### Serveur partagé (en construction)
+
+`r6server` garde les matchs de plusieurs espaces (une équipe, une ligue) dans une base SQLite. Chaque replay n'y est décodé qu'une fois, et les données extraites suffisent à tout afficher.
+
+```sh
+go run ./cmd/r6server create "Ma team" team   # affiche l'identifiant de l'espace
+go run ./cmd/r6server import <id> Replays     # envoie les replays d'un dossier
+go run ./cmd/r6server serve                   # API sur http://127.0.0.1:8080
+```
+
+Il n'a pas encore de comptes : il n'écoute que sur la machine locale.
+
 Sous Windows, les replays sont dans le dossier `MatchReplay` du jeu, avec un sous-dossier par match.
 
 Pour installer l'outil sans cloner le dépôt :
@@ -82,6 +94,7 @@ GOOS=windows GOARCH=amd64 go build -o r6rec.exe ./cmd/r6rec
 | `match/` | Regroupement des rounds en matchs, gestion des rehosts |
 | `stats/` | Calcul des statistiques |
 | `api/` | API JSON servie à l'interface web |
+| `server/` | Serveur partagé : espaces, envoi des replays, base SQLite |
 | `cmd/r6rec/` | Outil en ligne de commande |
 | `web/` | Interface web (React, TypeScript, Vite) |
 

@@ -96,6 +96,15 @@ type Settings struct {
 	MyTeam string `json:"myTeam"`
 }
 
+// Store holds what the user tells about the matches. *store.Store keeps it
+// in a file; the shared server keeps it in its database, per space.
+type Store interface {
+	Kind(matchID string) store.Kind
+	SetKind(matchID string, k store.Kind) error
+	MyTeam() string
+	SetMyTeam(team string) error
+}
+
 // Options configure a Server.
 type Options struct {
 	// Web is a folder holding the built interface, served for every path
@@ -103,7 +112,7 @@ type Options struct {
 	Web string
 	// Store holds what the user tells about the matches. Nil keeps it in
 	// memory.
-	Store *store.Store
+	Store Store
 }
 
 // Server answers the API requests. Match details are computed when the
@@ -115,7 +124,7 @@ type Server struct {
 	ids     []string // id of each match
 	maps    []string
 	sides   map[string]rec.Side
-	store   *store.Store
+	store   Store
 	mux     *http.ServeMux
 
 	mu        sync.Mutex
@@ -128,10 +137,10 @@ func New(matches []*match.Match, opt Options) *Server {
 		details:   map[string]*MatchDetail{},
 		maps:      []string{},
 		sides:     map[string]rec.Side{},
-		store:     opt.Store,
 		mux:       http.NewServeMux(),
 		overviews: map[[2]string]*Overview{},
 	}
+	s.store = opt.Store
 	if s.store == nil {
 		s.store = store.Memory()
 	}

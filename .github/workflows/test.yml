@@ -16,7 +16,10 @@ jobs:
       - run: go vet ./...
       # Le corpus de replays n'est pas versionné : les tests qui en dépendent sont ignorés.
       - run: go test ./...
+      # Le serveur décode les envois en parallèle : vérifier l'absence de course.
+      - run: go test -race -short ./server ./api ./store ./cache
       - run: GOOS=windows GOARCH=amd64 go build -o r6rec.exe ./cmd/r6rec
+      - run: GOOS=windows GOARCH=amd64 go build -o r6server.exe ./cmd/r6server
 
   web:
     runs-on: ubuntu-latest
