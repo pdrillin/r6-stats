@@ -192,4 +192,5 @@ Pour être prévenu d'une panne, un service de surveillance gratuit (UptimeRobot
 - [ ] `R6_CREATORS` contient ton identifiant Discord
 - [ ] La sauvegarde de la nuit est passée, et une restauration a été testée
 - [ ] Une surveillance interroge `/healthz`
-- [ ] Une page explique quelles données sont gardées et comment les faire supprimer (RGPD)
+- [ ] `R6_OPERATOR` et `R6_CONTACT` sont renseignés : la page `/privacy` affiche qui joindre (sans eux, elle le signale en rouge)
+- [ ] Tu as relu la page `/privacy` : elle doit rester vraie (durées de conservation, hébergeur)

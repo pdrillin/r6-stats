@@ -80,6 +80,8 @@ Pour activer la connexion Discord :
 R6_DISCORD_CLIENT_ID=… R6_DISCORD_CLIENT_SECRET=… go run ./cmd/r6server serve
 ```
 
+Une page de confidentialité (`/privacy`) explique ce qui est gardé et pourquoi. Chacun peut télécharger ses données ou supprimer son compte ; un responsable peut supprimer un match ou un espace. Le nom de l'exploitant et l'adresse de contact se règlent par `R6_OPERATOR` et `R6_CONTACT`.
+
 Pour le mettre en ligne (VPS, HTTPS, sauvegardes) : voir [deploy/README.md](deploy/README.md).
 
 `R6_CREATORS` (identifiants Discord séparés par des virgules) limite la création d'espaces pendant la bêta. Pour essayer sans Discord, sur ta machine seulement : `serve -dev-login`, puis ouvrir `http://127.0.0.1:8080/auth/dev?name=Coach`.

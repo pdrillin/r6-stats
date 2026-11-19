@@ -29,7 +29,41 @@ export function MembersPage() {
       </p>
       <Loading state={members}>{(list) => <MemberList list={list} me={me} canEdit={canEdit} />}</Loading>
       {canEdit && <Invitations />}
+      {canEdit && <DeleteSpace />}
     </>
+  );
+}
+
+/** Deletes the whole space, for managers: typing its name confirms. */
+function DeleteSpace() {
+  const { space } = useWhere();
+  const send = useSend();
+  const [typed, setTyped] = useState("");
+  const [error, setError] = useState<string>();
+  if (!space) return null;
+  const remove = async () => {
+    try {
+      await send("DELETE", "/spaces/" + space.id);
+      window.location.assign("/");
+    } catch (err) {
+      setError(String(err));
+    }
+  };
+  return (
+    <section className="danger-zone">
+      <h2>Supprimer l'espace</h2>
+      <p className="muted">
+        Supprime l'espace pour tous ses membres, avec ses matchs, ses statistiques et ses invitations. C'est définitif.
+        Pour confirmer, écris son nom : <b>{space.name}</b>
+      </p>
+      <div className="filters">
+        <input value={typed} onChange={(e) => setTyped(e.target.value)} aria-label="Nom de l'espace" />
+        <button className="button danger" disabled={typed !== space.name} onClick={remove}>
+          Supprimer définitivement
+        </button>
+      </div>
+      {error && <p className="error">{error}</p>}
+    </section>
   );
 }
 

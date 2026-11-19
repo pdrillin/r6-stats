@@ -447,29 +447,38 @@ func (s *Server) forget(spaceID string) {
 
 // matches assembles the matches of a space from its decoded rounds.
 func (s *Server) matches(spaceID string) ([]*match.Match, error) {
-	rows, err := s.db.Query(`SELECT f.file_name, r.data FROM space_files f JOIN rounds r USING (sha256)
+	ms, _, err := s.matchFiles(spaceID)
+	return ms, err
+}
+
+// matchFiles assembles the matches of a space, and tells the replay (SHA-256)
+// behind each decoded round.
+func (s *Server) matchFiles(spaceID string) ([]*match.Match, map[*rec.Round]string, error) {
+	shas := map[*rec.Round]string{}
+	rows, err := s.db.Query(`SELECT f.file_name, f.sha256, r.data FROM space_files f JOIN rounds r USING (sha256)
 		WHERE f.space_id = ?`, spaceID)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	defer rows.Close()
 	var files []match.RoundFile
 	for rows.Next() {
-		var name string
+		var name, sha string
 		var block []byte
-		if err := rows.Scan(&name, &block); err != nil {
-			return nil, err
+		if err := rows.Scan(&name, &sha, &block); err != nil {
+			return nil, nil, err
 		}
 		d, err := readBlock(block)
 		if err != nil {
-			return nil, fmt.Errorf("%s: %w", name, err)
+			return nil, nil, fmt.Errorf("%s: %w", name, err)
 		}
+		shas[d.Round] = sha
 		files = append(files, match.RoundFile{Path: name, Header: d.Header, Round: d.Round})
 	}
 	if err := rows.Err(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	return match.Assemble(files), nil
+	return match.Assemble(files), shas, nil
 }
 
 // spaceStore keeps the kinds and the own team of one space in the database.

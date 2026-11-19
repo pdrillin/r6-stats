@@ -327,12 +327,22 @@ func mapNameOf(m *match.Match) string {
 	return m.Map
 }
 
+// MatchID is the identifier of a match in the API: the match id of its first
+// recording, or its timestamp when the header has none.
+func MatchID(m *match.Match) string {
+	first := m.Rounds[0].Header
+	if first.MatchID != "" {
+		return first.MatchID
+	}
+	return strings.ReplaceAll(first.Timestamp, "-", "")
+}
+
 func detail(m *match.Match) *MatchDetail {
 	first := m.Rounds[0].Header
 	name := mapNameOf(m)
 	d := &MatchDetail{
 		MatchSummary: MatchSummary{
-			ID:         first.MatchID,
+			ID:         MatchID(m),
 			Map:        name,
 			Teams:      m.Teams,
 			Score:      m.Score(),
@@ -342,9 +352,6 @@ func detail(m *match.Match) *MatchDetail {
 		},
 		Rounds: make([]Round, len(m.Rounds)),
 		Stats:  stats.Compute(stats.Options{}, m),
-	}
-	if d.ID == "" {
-		d.ID = strings.ReplaceAll(first.Timestamp, "-", "")
 	}
 	for i, rf := range m.Rounds {
 		d.Rounds[i] = round(rf, m.Roster(i))

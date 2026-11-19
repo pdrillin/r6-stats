@@ -30,6 +30,10 @@ type Config struct {
 	// DevLogin enables /auth/dev?name=…, which signs in without Discord.
 	// Only for development on the local machine.
 	DevLogin bool
+	// Operator and Contact name who runs the site and how to reach them,
+	// shown on the privacy page: the data controller under the GDPR.
+	Operator string
+	Contact  string
 }
 
 // Discord is an OAuth2 application of the Discord developer portal.

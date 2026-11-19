@@ -23,7 +23,10 @@ const MaxFilesPerUpload = 64
 //	POST /auth/logout                   sign out
 //	GET  /auth/dev?name=…               sign in without Discord (Config.DevLogin)
 //
+//	GET  /api/info                      who runs the site (public, for the privacy page)
 //	GET  /api/me                        the signed-in user
+//	GET  /api/me/export                 everything kept about them (JSON download)
+//	DELETE /api/me                      delete their account
 //	GET  /api/spaces                    their spaces, with their role
 //	POST /api/spaces                    create one: {"name", "kind": "team"|"league"}
 //	GET  /api/invitations/{token}       what an invitation link leads to
@@ -38,6 +41,8 @@ const MaxFilesPerUpload = 64
 //	GET    /api/spaces/{id}/invitations                              manager
 //	POST   /api/spaces/{id}/invitations           {"role"}           manager
 //	DELETE /api/spaces/{id}/invitations/{inv}                        manager
+//	DELETE /api/spaces/{id}/matches/{match}       manager
+//	DELETE /api/spaces/{id}                       manager
 //	       /api/spaces/{id}/…                     statistics (package api); writes: manager
 func (s *Server) Handler(cfg Config) http.Handler {
 	s.cfg = cfg
@@ -55,6 +60,38 @@ func (s *Server) Handler(cfg Config) http.Handler {
 			User
 			CanCreate bool `json:"canCreate"`
 		}{u, s.canCreate(u)})
+	}))
+	mux.HandleFunc("GET /api/info", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, http.StatusOK, struct {
+			Operator string `json:"operator"`
+			Contact  string `json:"contact"`
+		}{s.cfg.Operator, s.cfg.Contact})
+	})
+	mux.HandleFunc("GET /api/me/export", s.signedIn(func(w http.ResponseWriter, r *http.Request, u User) {
+		e, err := s.ExportUser(u.ID)
+		if err != nil {
+			serverError(w, err)
+			return
+		}
+		w.Header().Set("Content-Disposition", `attachment; filename="r6-stats-mes-donnees.json"`)
+		writeJSON(w, http.StatusOK, e)
+	}))
+	mux.HandleFunc("DELETE /api/me", s.signedIn(func(w http.ResponseWriter, r *http.Request, u User) {
+		err := s.DeleteAccount(u.ID)
+		var sole ErrSoleManager
+		if errors.As(err, &sole) {
+			writeJSON(w, http.StatusConflict, struct {
+				Error  string   `json:"error"`
+				Spaces []string `json:"spaces"`
+			}{"sole manager", sole.Spaces})
+			return
+		}
+		if err != nil {
+			serverError(w, err)
+			return
+		}
+		http.SetCookie(w, &http.Cookie{Name: sessionCookie, Path: "/", MaxAge: -1})
+		w.WriteHeader(http.StatusNoContent)
 	}))
 	mux.HandleFunc("GET /api/spaces", s.signedIn(func(w http.ResponseWriter, r *http.Request, u User) {
 		spaces, err := s.SpacesOf(u.ID)
@@ -162,6 +199,12 @@ func (s *Server) Handler(cfg Config) http.Handler {
 	}))
 	mux.HandleFunc("DELETE /api/spaces/{id}/invitations/{inv}", s.inSpace(Manager, func(w http.ResponseWriter, r *http.Request, u User, role Role) {
 		memberError(w, s.Revoke(r.PathValue("id"), r.PathValue("inv")))
+	}))
+	mux.HandleFunc("DELETE /api/spaces/{id}/matches/{match}", s.inSpace(Manager, func(w http.ResponseWriter, r *http.Request, u User, role Role) {
+		memberError(w, s.DeleteMatch(r.PathValue("id"), r.PathValue("match")))
+	}))
+	mux.HandleFunc("DELETE /api/spaces/{id}", s.inSpace(Manager, func(w http.ResponseWriter, r *http.Request, u User, role Role) {
+		memberError(w, s.DeleteSpace(r.PathValue("id")))
 	}))
 	mux.HandleFunc("/api/spaces/{id}/", s.inSpace(Player, func(w http.ResponseWriter, r *http.Request, u User, role Role) {
 		// Reading is for members, changing labels and settings for

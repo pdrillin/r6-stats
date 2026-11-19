@@ -29,7 +29,9 @@ function SignIn() {
           Se connecter avec Discord
         </button>
       </p>
-      <p className="muted">Seuls ton pseudo et ton avatar Discord sont lus.</p>
+      <p className="muted">
+        Seuls ton pseudo et ton avatar Discord sont lus. <a href="/privacy">Confidentialité</a>
+      </p>
     </main>
   );
 }
@@ -75,7 +77,52 @@ function Spaces({ me }: { me: Me }) {
         )}
       </Loading>
       {me.canCreate && <CreateSpace />}
+      <Account />
     </>
+  );
+}
+
+/** The user's rights over their data: take it, or delete it. */
+function Account() {
+  const [error, setError] = useState<string>();
+  const [busy, setBusy] = useState(false);
+  const remove = async () => {
+    if (!confirm("Supprimer ton compte ? Tu quittes tous tes espaces, et ceux dont tu es le seul membre sont supprimés avec leurs matchs. C'est définitif.")) {
+      return;
+    }
+    setBusy(true);
+    setError(undefined);
+    const res = await fetch("/api/me", { method: "DELETE" });
+    if (res.ok) {
+      window.location.assign("/");
+      return;
+    }
+    setBusy(false);
+    if (res.status === 409) {
+      const body = (await res.json()) as { spaces: string[] };
+      setError(
+        `Tu es le seul responsable de ${body.spaces.join(", ")}, qui a d'autres membres : nomme d'abord un autre responsable (page Membres), ou supprime l'espace.`,
+      );
+      return;
+    }
+    setError(`${res.status} ${(await res.text()).trim()}`);
+  };
+  return (
+    <section className="account-section">
+      <h2>Mon compte</h2>
+      <div className="filters">
+        <a className="button" href="/api/me/export" download>
+          Télécharger mes données
+        </a>
+        <button className="button danger" disabled={busy} onClick={remove}>
+          Supprimer mon compte
+        </button>
+      </div>
+      {error && <p className="error">{error}</p>}
+      <p className="muted">
+        Ce qui est gardé et pourquoi : <a href="/privacy">confidentialité</a>.
+      </p>
+    </section>
   );
 }
 

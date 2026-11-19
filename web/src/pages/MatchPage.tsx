@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { kindLabels, useApi, useSend, type MatchDetail, type MatchKind, type Round } from "../api";
 import { useWhere } from "../space";
 import { RoundTimeline } from "../components/charts";
@@ -46,7 +46,41 @@ function Match({ m }: { m: MatchDetail }) {
 
       <h2>Avantages numériques</h2>
       <Situations teams={m.stats.teams} />
+
+      <DeleteMatch m={m} />
     </>
+  );
+}
+
+/** Removes the match from the space, for managers. */
+function DeleteMatch({ m }: { m: MatchDetail }) {
+  const { server, canEdit } = useWhere();
+  const send = useSend();
+  const navigate = useNavigate();
+  const [error, setError] = useState<string>();
+  if (!server || !canEdit) return null;
+  const remove = async () => {
+    if (!confirm(`Supprimer ce match (${m.map}, ${m.teams[0]} ${m.score[0]}–${m.score[1]} ${m.teams[1]}) de l'espace ? Ses rounds et ses statistiques disparaissent pour tous les membres.`)) {
+      return;
+    }
+    try {
+      await send("DELETE", `matches/${encodeURIComponent(m.id)}`);
+      navigate("/matches");
+    } catch (err) {
+      setError(String(err));
+    }
+  };
+  return (
+    <section className="danger-zone">
+      <h2>Supprimer le match</h2>
+      <p className="muted">
+        Retire ce match de l'espace, par exemple un replay envoyé par erreur, ou à la demande d'un joueur qui y apparaît.
+      </p>
+      <button className="button danger" onClick={remove}>
+        Supprimer ce match
+      </button>
+      {error && <p className="error">{error}</p>}
+    </section>
   );
 }
 

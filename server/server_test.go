@@ -721,3 +721,142 @@ func TestBackup(t *testing.T) {
 		t.Error("restored database lost the session")
 	}
 }
+
+func rawFiles(t *testing.T, dir string) int {
+	t.Helper()
+	n := 0
+	filepath.WalkDir(filepath.Join(dir, "raw"), func(p string, d fs.DirEntry, err error) error {
+		if err == nil && !d.IsDir() {
+			n++
+		}
+		return nil
+	})
+	return n
+}
+
+// TestDeleteMatchAndSpace checks that deleted data really goes, and only once
+// no space holds it.
+func TestDeleteMatchAndSpace(t *testing.T) {
+	files := chalet(t)
+	dir := t.TempDir()
+	s := open(t, dir)
+	cfg := Config{BaseURL: testURL}
+	alice := newClient(t, s, cfg, "alice")
+	bob := newClient(t, s, cfg, "bob")
+	a := alice.createSpace("A")
+	b := alice.createSpace("B")
+	alice.upload(a.ID, files)
+	alice.upload(b.ID, files)
+	var inv struct{ Invitation }
+	alice.send("POST", "/api/spaces/"+a.ID+"/invitations", `{"role":"player"}`, &inv)
+	bob.send("POST", "/api/invitations/"+inv.Token+"/accept", ``, nil)
+
+	var list []api.MatchSummary
+	alice.get("/api/spaces/"+a.ID+"/matches", &list)
+	matchURL := "/api/spaces/" + a.ID + "/matches/" + list[0].ID
+	alice.send("PUT", matchURL+"/kind", `{"kind":"official"}`, nil)
+
+	if code := bob.send("DELETE", matchURL, ``, nil); code != http.StatusForbidden {
+		t.Errorf("player deletes a match: %d", code)
+	}
+	if code := alice.send("DELETE", "/api/spaces/"+a.ID+"/matches/nope", ``, nil); code != http.StatusNotFound {
+		t.Errorf("unknown match: %d", code)
+	}
+	if code := alice.send("DELETE", matchURL, ``, nil); code != 204 {
+		t.Fatalf("delete match: %d", code)
+	}
+	if alice.get("/api/spaces/"+a.ID+"/matches", &list); len(list) != 0 {
+		t.Errorf("%d matches left in A", len(list))
+	}
+	if n := count(t, s, "SELECT COUNT(*) FROM match_kinds WHERE space_id = ?", a.ID); n != 0 {
+		t.Errorf("label of the deleted match kept")
+	}
+	// B still holds the replays.
+	if n := count(t, s, "SELECT COUNT(*) FROM replay_files"); n != len(files) || rawFiles(t, dir) != len(files) {
+		t.Errorf("shared replays: %d in the database, %d raw files", n, rawFiles(t, dir))
+	}
+	if alice.get("/api/spaces/"+b.ID+"/matches", &list); len(list) != 1 {
+		t.Errorf("B lost its match")
+	}
+
+	// Deleting the last space holding them deletes them for good.
+	if code := alice.send("DELETE", "/api/spaces/"+b.ID, ``, nil); code != 204 {
+		t.Fatalf("delete space: %d", code)
+	}
+	for _, table := range []string{"replay_files", "rounds"} {
+		if n := count(t, s, "SELECT COUNT(*) FROM "+table); n != 0 {
+			t.Errorf("%d rows left in %s", n, table)
+		}
+	}
+	if n := rawFiles(t, dir); n != 0 {
+		t.Errorf("%d raw files left", n)
+	}
+	if left, _ := os.ReadDir(filepath.Join(dir, "raw")); len(left) != 0 {
+		t.Errorf("%d empty folders left in raw", len(left))
+	}
+	if code := alice.get("/api/spaces/"+b.ID+"/overview", nil); code != http.StatusNotFound {
+		t.Errorf("deleted space: %d", code)
+	}
+	if code := bob.send("DELETE", "/api/spaces/"+a.ID, ``, nil); code != http.StatusForbidden {
+		t.Errorf("player deletes the space: %d", code)
+	}
+}
+
+func TestDeleteAccount(t *testing.T) {
+	s := open(t, t.TempDir())
+	cfg := Config{BaseURL: testURL, Operator: "Pierre", Contact: "contact@example.org"}
+	carol := newClient(t, s, cfg, "carol")
+	dave := newClient(t, s, cfg, "dave")
+	team := carol.createSpace("Team")
+	solo := carol.createSpace("Solo")
+	var inv struct{ Invitation }
+	carol.send("POST", "/api/spaces/"+team.ID+"/invitations", `{"role":"player"}`, &inv)
+	dave.send("POST", "/api/invitations/"+inv.Token+"/accept", ``, nil)
+	s.db.Exec("INSERT INTO replay_files (sha256, size, received_at) VALUES ('x', 1, 'now')")
+	s.db.Exec("INSERT INTO space_files (space_id, sha256, file_name, added_at, uploaded_by) VALUES (?, 'x', 'R01.rec', 'now', ?)",
+		team.ID, carol.user.ID)
+
+	// Public information for the privacy page.
+	var info struct{ Operator, Contact string }
+	if code := newClient(t, s, cfg, "").get("/api/info", &info); code != 200 || info.Contact != "contact@example.org" {
+		t.Errorf("info: %d %+v", code, info)
+	}
+
+	var export Export
+	if code := carol.get("/api/me/export", &export); code != 200 || export.User.Name != "carol" ||
+		len(export.Spaces) != 2 || len(export.Uploads) != 1 || export.Uploads[0].Space != "Team" {
+		t.Errorf("export: %d %+v", code, export)
+	}
+
+	// Carol manages Team alone while Dave is in it: she must hand it over.
+	rr := carol.do("DELETE", "/api/me", "", nil, nil)
+	if rr.Code != http.StatusConflict || !strings.Contains(rr.Body.String(), "Team") {
+		t.Fatalf("delete sole manager: %d %s", rr.Code, rr.Body)
+	}
+	if code := carol.get("/api/me", nil); code != 200 {
+		t.Error("refused deletion signed carol out")
+	}
+	carol.send("PUT", "/api/spaces/"+team.ID+"/members/"+dave.user.ID, `{"role":"manager"}`, nil)
+	if rr := carol.do("DELETE", "/api/me", "", nil, nil); rr.Code != http.StatusNoContent {
+		t.Fatalf("delete account: %d %s", rr.Code, rr.Body)
+	}
+
+	if code := carol.get("/api/me", nil); code != http.StatusUnauthorized {
+		t.Errorf("deleted account still signed in: %d", code)
+	}
+	for _, q := range []string{"users WHERE id = ?", "sessions WHERE user_id = ?", "memberships WHERE user_id = ?", "space_files WHERE uploaded_by = ?"} {
+		if n := count(t, s, "SELECT COUNT(*) FROM "+q, carol.user.ID); n != 0 {
+			t.Errorf("%s: %d rows left", q, n)
+		}
+	}
+	// Her lone space went with her; Team stays with Dave, and her upload
+	// stays in it without her name.
+	if n := count(t, s, "SELECT COUNT(*) FROM spaces WHERE id = ?", solo.ID); n != 0 {
+		t.Error("lone space kept")
+	}
+	var spaces []Space
+	dave.get("/api/spaces", &spaces)
+	if len(spaces) != 1 || spaces[0].Files != 1 || spaces[0].Role != Manager {
+		t.Errorf("dave's spaces = %+v", spaces)
+	}
+}

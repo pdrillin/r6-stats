@@ -1,6 +1,7 @@
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { filterSearch } from "./components/MapFilter";
 import { MembersPage } from "./pages/MembersPage";
+import { Footer } from "./components/Footer";
 import { UploadPage } from "./pages/UploadPage";
 import { signOut, useWhere } from "./space";
 import { ComparePage } from "./pages/ComparePage";
@@ -70,6 +71,7 @@ export function App() {
           <Route path="*" element={<p className="error">Page introuvable.</p>} />
         </Routes>
       </main>
+      {server && <Footer />}
     </>
   );
 }

@@ -40,6 +40,8 @@ Sign-in with Discord reads the environment:
   R6_DISCORD_CLIENT_ID, R6_DISCORD_CLIENT_SECRET   the OAuth2 application
   R6_CREATORS   comma-separated Discord ids allowed to create spaces
                 (closed beta; empty lets everyone signed in create spaces)
+  R6_OPERATOR, R6_CONTACT   who runs the site and how to reach them
+                (shown on the privacy page)
 The Discord application must list <base-url>/auth/callback as redirect.
 
 -dev-login signs in by name, without Discord, at /auth/dev?name=…: only on
@@ -105,6 +107,8 @@ func serve(s *server.Server, args []string) error {
 			ClientSecret: os.Getenv("R6_DISCORD_CLIENT_SECRET"),
 		},
 		DevLogin: *dev,
+		Operator: os.Getenv("R6_OPERATOR"),
+		Contact:  os.Getenv("R6_CONTACT"),
 	}
 	if cfg.BaseURL == "" {
 		cfg.BaseURL = "http://" + *addr
@@ -134,6 +138,9 @@ func serve(s *server.Server, args []string) error {
 	}
 	if cfg.Discord.ClientID != "" && cfg.Discord.ClientSecret == "" {
 		return fmt.Errorf("R6_DISCORD_CLIENT_SECRET is not set")
+	}
+	if cfg.Contact == "" {
+		log.Printf("warning: R6_CONTACT is not set, the privacy page shows no contact")
 	}
 	if len(cfg.Creators) == 0 {
 		log.Printf("R6_CREATORS is empty: everyone signed in can create spaces")

@@ -45,6 +45,7 @@ Confidentialité et accès :
   - plus tard, **lecture seule** (analyste, remplaçant).
 - **Un membre n'apparaît pas forcément dans les replays** (le coach, par exemple) : l'accès dépend d'un compte sur l'outil, pas de l'identité en jeu. À côté, chaque joueur de l'équipe est relié à son profil Ubisoft pour reconnaître « nous » dans les replays.
 - **Les données de l'adversaire restent dans l'espace** : l'équipe affrontée en pracc ne voit rien, et ces matchs n'alimentent jamais une page publique. Les seules données publiques sont celles d'une ligue qui choisit de publier ses matchs officiels.
+- **RGPD** (fait) : page publique `/privacy` (`web/src/pages/PrivacyPage.tsx`), exploitant et contact réglés sur le serveur (`R6_OPERATOR`, `R6_CONTACT`). Droits réels, pas seulement annoncés : export JSON (`GET /api/me/export`), suppression du compte (`DELETE /api/me`, refusée tant que l'utilisateur est seul responsable d'un espace qui a d'autres membres ; ses espaces sans autre membre partent avec lui), suppression d'un match ou d'un espace par un responsable. Un replay n'est effacé (base et fichier brut) que quand plus aucun espace ne le tient (`server/privacy.go`, `collect`). **Toute modification de ce qui est stocké ou de sa durée doit être reportée sur la page de confidentialité.**
 - **Connexion** : comptes via Discord (OAuth), invitations par lien. Prévu avec le serveur partagé, conçu pour accueillir ensuite les ligues. En attendant, chaque page de l'interface doit être pensée comme appartenant à un espace.
 
 Types de match, à ne jamais mélanger dans une même stat par défaut :
@@ -114,7 +115,7 @@ deploy/build.sh                                 # version à installer : dist/r6
 # -data <dossier> avant la sous-commande : base et bruts (défaut r6-data)
 ```
 
-Connexion : variables `R6_DISCORD_CLIENT_ID`, `R6_DISCORD_CLIENT_SECRET` (application OAuth2 Discord, redirection `<url>/auth/callback`) et `R6_CREATORS` (identifiants Discord autorisés à créer des espaces, séparés par des virgules ; vide = tout le monde). `-dev-login` permet de se connecter par un simple nom (`/auth/dev?name=…`), sans Discord : refusé hors de la machine locale. Hors de la machine locale, `serve` exige une `-url` en https. Ouvrir le site à l'adresse exacte de `-url` : les modifications venant d'une autre origine sont refusées.
+Connexion : variables `R6_DISCORD_CLIENT_ID`, `R6_DISCORD_CLIENT_SECRET` (application OAuth2 Discord, redirection `<url>/auth/callback`) et `R6_CREATORS` (identifiants Discord autorisés à créer des espaces, séparés par des virgules ; vide = tout le monde). `R6_OPERATOR` et `R6_CONTACT` : exploitant et contact affichés sur la page de confidentialité. `-dev-login` permet de se connecter par un simple nom (`/auth/dev?name=…`), sans Discord : refusé hors de la machine locale. Hors de la machine locale, `serve` exige une `-url` en https. Ouvrir le site à l'adresse exacte de `-url` : les modifications venant d'une autre origine sont refusées.
 
 Les rounds décodés sont mis en cache (dossier de cache de l'utilisateur : `~/.cache/r6-stats`, `%LocalAppData%\r6-stats` sous Windows). `R6STATS_CACHE=<dossier>` en choisit un autre, `R6STATS_CACHE=off` le coupe. Corpus : environ 5 s sans cache (décodage en parallèle), 0,2 s avec, 1,7 Mo de cache.
 
