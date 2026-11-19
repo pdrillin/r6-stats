@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"sort"
+	"strconv"
 	"strings"
 	"text/tabwriter"
 
@@ -22,6 +23,8 @@ const usage = `usage:
   r6rec matches <dir>...        rounds grouped into matches, with scoreboards
   r6rec stats [-json] <dir>...  opening duels, trades, clutches and man-advantage
                                 conversion over every match under the folders
+  r6rec rooms [-n N] <dir>...   kills and deaths by room, N busiest rooms per map
+                                (default 15, 0 for all)
   r6rec header [-raw] <file>    header of one round as JSON (-raw: every property)
   r6rec round <file>            events of one round as JSON
   r6rec dump <file> <out>       write the decompressed body to <out>
@@ -40,6 +43,8 @@ func main() {
 		err = matches(os.Args[2:])
 	case "stats":
 		err = statistics(os.Args[2:])
+	case "rooms":
+		err = rooms(os.Args[2:])
 	case "header":
 		err = header(os.Args[2:])
 	case "round":
@@ -372,4 +377,39 @@ func clutches(m map[int]*stats.Record) string {
 func clock(ms int) string {
 	s := ms / 1000
 	return fmt.Sprintf("%d:%02d", s/60, s%60)
+}
+
+func rooms(args []string) error {
+	limit := 15
+	if len(args) >= 2 && args[0] == "-n" {
+		n, err := strconv.Atoi(args[1])
+		if err != nil || n < 0 {
+			return fmt.Errorf("-n wants a number, got %q", args[1])
+		}
+		limit, args = n, args[2:]
+	}
+	if len(args) == 0 {
+		fmt.Fprint(os.Stderr, usage)
+		os.Exit(2)
+	}
+	ms, err := load(args)
+	if err != nil {
+		return err
+	}
+	rep := stats.Compute(stats.Options{}, ms...)
+	fmt.Println("Kills are counted in the killer's room, deaths in the victim's.")
+	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
+	shown, cur := 0, ""
+	for _, r := range rep.Rooms {
+		if r.Map != cur {
+			cur, shown = r.Map, 0
+			fmt.Fprintf(w, "\n%s\tATK KILLS\tATK DEATHS\tDEF KILLS\tDEF DEATHS\n", r.Map)
+		}
+		if limit > 0 && shown == limit {
+			continue
+		}
+		shown++
+		fmt.Fprintf(w, "  %s\t%d\t%d\t%d\t%d\n", r.Room, r.Attack.Kills, r.Attack.Deaths, r.Defense.Kills, r.Defense.Deaths)
+	}
+	return w.Flush()
 }

@@ -29,6 +29,7 @@ go test -short ./...                 # saute les tests qui décompressent tout l
 go run ./cmd/r6rec ls Replays        # une ligne par round
 go run ./cmd/r6rec matches Replays   # matchs reconstitués, round par round
 go run ./cmd/r6rec stats Replays     # rapport de stats (-json pour du JSON)
+go run ./cmd/r6rec rooms Replays     # kills et morts par pièce (-n N pièces par map)
 go run ./cmd/r6rec round <fichier.rec>  # événements décodés d'un round
 go run ./cmd/r6rec header -raw <fichier.rec>
 go run ./cmd/r6rec dump <fichier.rec> <sortie.bin>  # corps décompressé, pour la rétro-ingénierie
@@ -77,9 +78,12 @@ Entiers en little-endian sauf mention contraire.
 - Entrée du kill feed (première clé `0x5934e58b`) : `0xd9133cba` tueur, `0xac190f70` victime, `0xc198de70` / `0x782e7b50` équipe du tueur / de la victime + 1, `0xc35ba44e` headshot. Les entrées sont renvoyées à chaque redessin du feed : dédoublonner par identifiant d'objet. Les entrées sans victime sont des annonces de phase.
 - Objets « étiquette » (clé `0xaf9899ca`), présents dans l'état initial du corps :
   - **Site de bombe** : valeur non indexée de la forme `"2F Master Bedroom<br/>2F Office"`, avec `0x2ca42af6` = 1. Un second objet peut porter un ancien site avec `0x2ca42af6` = 2 (par exemple le dernier site de la map précédente) : l'ignorer. L'étiquette n'est jamais mise à jour pendant le round. Vérifié sur les 84 fichiers : une seule étiquette active par round.
-  - **Points d'apparition des attaquants** : valeur non indexée (`"Campfire"`, `"Lakeside"`) suivie de `0x76fee40a` = 4. Pas encore exploités.
-  - **Pièce courante** (probablement d'un joueur) : `0xaf9899ca` = `ffffffffffffffff`, puis `[0]` = nom de la pièce. Dans l'état initial, 5 objets portent une pièce (les défenseurs, sur ou près du site) et 15 sont vides. Mises à jour pendant le round ; pas encore rattachées aux joueurs.
-- Les noms de pièces peuvent différer légèrement des étiquettes de site (`"1F  Kitchen Cooking"` avec deux espaces sur Kafe).
+  - **Points d'apparition** : valeur non indexée (`"Campfire"`, `"Lakeside"`) suivie de `0x76fee40a` = 4. **Non fiable** : souvent un reste d'un round précédent, présent aussi chez les défenseurs. Non utilisé.
+  - **Positions des joueurs** : `0xaf9899ca` = `ffffffffffffffff`, puis l'élément indexé `[0]` = nom de la pièce (vide si mort ou pas encore déployé), `[1]` = un octet.
+- **Rattachement des positions aux joueurs** (`rec/position.go`) : dans l'état initial, chaque joueur a un bloc qui commence par son nom (clé `0x07949bdc`) et se termine au nom suivant. Le bloc contient deux objets de position : le **premier suit la vue** (drone en préparation, caméras), le **second suit le corps**. Validé sur le corpus : le corps passe à vide au moment de la mort annoncée par le kill feed (532 cas sur 556 ; les autres ne sont pas remis à zéro mais la dernière pièce connue reste juste), et les défenseurs démarrent sur leur site dans 74 rounds sur 79.
+- La pièce d'un kill est la dernière pièce non vide du corps avant le kill, en comptant les mises à jour du même tick de chrono (elles arrivent parfois juste après l'entrée du feed). Connue pour les 555 kills du corpus.
+- Les noms de pièces peuvent différer légèrement des étiquettes de site (`"1F  Kitchen Cooking"` avec deux espaces sur Kafe) : le parser normalise les espaces.
+- Sur Kafe, les défenseurs du site Fireplace Hall / Mining Room démarrent dans le Train Museum voisin.
 - Un événement prend l'heure de la dernière mise à jour du chrono qui le précède dans le corps (le corps est chronologique).
 
 **Pièges connus**
@@ -96,12 +100,13 @@ Entiers en little-endian sauf mention contraire.
 - Trade : le tueur meurt, tué par l'équipe de la victime, dans les `TradeWindowMs` (5000 par défaut). Un kill qui venge plusieurs morts compte pour un seul kill de trade.
 - Clutch : joueur resté seul dans son équipe ; taille = nombre d'ennemis en vie à ce moment ; gagné si l'équipe gagne le round.
 - Situations : chaque état NvM compté une fois par round, avec le nombre de rounds gagnés.
+- Pièces : kills comptés dans la pièce du tueur, morts dans celle de la victime, séparés par côté (`Report.Rooms`), et par joueur (`KillRooms`, `DeathRooms`).
 - Sites : par équipe, map et site, rounds joués et gagnés en attaque et en défense, et rounds d'attaque avec pose (et gagnés). Les rounds sans site connu ne comptent pas dans cette ventilation.
 - Les joueurs sont identifiés par leur profile id quand il existe, par leur nom sinon. Les rounds sans vainqueur connu sont écartés et comptés dans `SkippedRounds`.
 
 ## Prochaines étapes
 
-1. Décoder qui pose et qui désamorce (débloque le KOST complet), et rattacher les pièces courantes aux joueurs (où on tue, où on meurt). Le site de bombe est fait.
+1. Décoder qui pose et qui désamorce (débloque le KOST complet). Piste : l'attaquant présent dans une pièce du site au moment de la pose. Le site de bombe et les positions sont faits.
 2. Ventiler les stats existantes par côté, map et opérateur.
 3. Récupérer des replays de ranked sur le PC de l'utilisateur pour vérifier `matchtype`, les profile ids et les différences avec les fichiers de tournoi.
 4. Ensuite le serveur, l'interface web et l'app Windows.

@@ -55,6 +55,11 @@ type Player struct {
 	// Clutches counts the rounds where the player was the last one alive,
 	// keyed by the number of enemies alive at that moment.
 	Clutches map[int]*Record `json:"clutches"`
+
+	// KillRooms and DeathRooms count kills by the room the player was in,
+	// and deaths by the room the player died in.
+	KillRooms  map[string]int `json:"killRooms"`
+	DeathRooms map[string]int `json:"deathRooms"`
 }
 
 // Situation is a count of players alive on each side.
@@ -104,7 +109,28 @@ type Report struct {
 	// out because their winner is unknown.
 	Rounds        int `json:"rounds"`
 	SkippedRounds int `json:"skippedRounds"`
+
+	// Rooms counts kills and deaths by room, ordered by map, then by
+	// number of deaths. Kills are counted where the killer stood.
+	Rooms []*Room `json:"rooms"`
 }
+
+// Room holds the kills and deaths that happened in one room of a map.
+type Room struct {
+	Map     string    `json:"map"`
+	Room    string    `json:"room"`
+	Attack  RoomCount `json:"attack"`
+	Defense RoomCount `json:"defense"`
+}
+
+// RoomCount is what the players of one side did in a room.
+type RoomCount struct {
+	Kills  int `json:"kills"`
+	Deaths int `json:"deaths"`
+}
+
+// Deaths is the total number of deaths in the room.
+func (r *Room) Deaths() int { return r.Attack.Deaths + r.Defense.Deaths }
 
 // Compute totals every round of the given matches. Players are matched
 // across rounds by Ubisoft profile id when the replay has one, by name
@@ -124,6 +150,16 @@ func Compute(opt Options, matches ...*match.Match) *Report {
 			c.round(m.Map, m.Teams, m.Roster(i), rf.Round)
 		}
 	}
+	sort.SliceStable(c.rep.Rooms, func(i, j int) bool {
+		a, b := c.rep.Rooms[i], c.rep.Rooms[j]
+		if a.Map != b.Map {
+			return a.Map < b.Map
+		}
+		if a.Deaths() != b.Deaths() {
+			return a.Deaths() > b.Deaths()
+		}
+		return a.Room < b.Room
+	})
 	sort.SliceStable(c.rep.Players, func(i, j int) bool {
 		a, b := c.rep.Players[i], c.rep.Players[j]
 		if a.Team != b.Team {
@@ -141,6 +177,7 @@ type collector struct {
 	opt       Options
 	rep       *Report
 	players   map[string]*Player // by identity key
+	roomIndex map[string]*Room   // by map and room
 	teams     map[string]*Team
 	teamOrder map[string]int
 }
@@ -168,7 +205,8 @@ func (c *collector) player(p rec.Player, team string) *Player {
 	}
 	pl := c.players[key]
 	if pl == nil {
-		pl = &Player{Name: p.Name, Team: team, Clutches: map[int]*Record{}}
+		pl = &Player{Name: p.Name, Team: team, Clutches: map[int]*Record{},
+			KillRooms: map[string]int{}, DeathRooms: map[string]int{}}
 		c.players[key] = pl
 		c.rep.Players = append(c.rep.Players, pl)
 	}
@@ -252,6 +290,7 @@ func (c *collector) round(mapName string, teams [2]string, roster []rec.Player, 
 				killer.Headshots++
 			}
 		}
+		c.rooms(mapName, attacker, k, victim, killer)
 
 		if i == 0 {
 			if victim != nil {
@@ -307,6 +346,47 @@ func (c *collector) round(mapName string, teams [2]string, roster []rec.Player, 
 			}
 		}
 	}
+}
+
+// rooms records where a kill happened: the victim's death in their room and,
+// for an enemy kill, the kill in the killer's room.
+func (c *collector) rooms(mapName string, attacker int, k rec.Kill, victim, killer *Player) {
+	side := func(team int) func(*Room) *RoomCount {
+		if team == attacker {
+			return func(r *Room) *RoomCount { return &r.Attack }
+		}
+		return func(r *Room) *RoomCount { return &r.Defense }
+	}
+	if k.VictimRoom != "" {
+		if victim != nil {
+			victim.DeathRooms[k.VictimRoom]++
+		}
+		if attacker >= 0 {
+			side(k.VictimTeam)(c.room(mapName, k.VictimRoom)).Deaths++
+		}
+	}
+	if enemy(k) && k.KillerRoom != "" {
+		if killer != nil {
+			killer.KillRooms[k.KillerRoom]++
+		}
+		if attacker >= 0 {
+			side(k.KillerTeam)(c.room(mapName, k.KillerRoom)).Kills++
+		}
+	}
+}
+
+func (c *collector) room(mapName, name string) *Room {
+	key := mapName + "\x00" + name
+	r := c.roomIndex[key]
+	if r == nil {
+		r = &Room{Map: mapName, Room: name}
+		if c.roomIndex == nil {
+			c.roomIndex = map[string]*Room{}
+		}
+		c.roomIndex[key] = r
+		c.rep.Rooms = append(c.rep.Rooms, r)
+	}
+	return r
 }
 
 // enemy reports whether the kill is one team killing a player of the other,

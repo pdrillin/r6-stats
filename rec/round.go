@@ -84,6 +84,10 @@ type Kill struct {
 	Victim     string `json:"victim"`
 	VictimTeam int    `json:"victimTeam"`
 	Headshot   bool   `json:"headshot"`
+	// KillerRoom and VictimRoom are where each body was at the time of the
+	// kill. Empty when unknown.
+	KillerRoom string `json:"killerRoom"`
+	VictimRoom string `json:"victimRoom"`
 }
 
 // Round is what happened during one round file.
@@ -103,6 +107,9 @@ type Round struct {
 	// Site is the bomb site defended this round, as the two rooms the game
 	// names it by, e.g. "2F Master Bedroom / 2F Office". Empty if not found.
 	Site string `json:"site"`
+	// Positions lists, per player name, every room the player's body
+	// entered while alive and deployed.
+	Positions map[string][]Position `json:"positions"`
 }
 
 // Body decompresses the whole replay body.
@@ -146,8 +153,34 @@ func decodeRound(h *Header, body []byte) *Round {
 	if r.Complete {
 		r.End = clockAt(endOff)
 	}
-	r.Kills = readKills(body, clockAt)
+	kills, offs := readKills(body, clockAt)
+	r.Kills = kills
 	r.Site = readSite(body)
+
+	players := readPlayerObjects(body)
+	tr := readTracks(body, players)
+	r.Positions = map[string][]Position{}
+	for _, p := range players {
+		if pos := tr.positions(p.name, clockAt); len(pos) > 0 {
+			r.Positions[p.name] = pos
+		}
+	}
+	// Room updates sent in the same tick as a kill can arrive just after it.
+	tickEnd := func(off int) int {
+		i := sort.Search(len(ticks), func(i int) bool { return ticks[i].off > off })
+		if i == len(ticks) {
+			return len(body)
+		}
+		return ticks[i].off
+	}
+	for i := range r.Kills {
+		k := &r.Kills[i]
+		end := tickEnd(offs[i])
+		if k.Killer != "" {
+			k.KillerRoom = tr.roomAt(k.Killer, offs[i], end)
+		}
+		k.VictimRoom = tr.roomAt(k.Victim, offs[i], end)
+	}
 	r.Winner, r.WinReason = decideWinner(h, r)
 	return r
 }
@@ -280,8 +313,10 @@ func roundObjectRef(body []byte) []byte {
 	}
 }
 
-func readKills(body []byte, clockAt func(off int) Clock) []Kill {
+// readKills returns the kill feed and the body offset of each entry.
+func readKills(body []byte, clockAt func(off int) Clock) ([]Kill, []int) {
 	kills := []Kill{}
+	var offs []int
 	key := binary.BigEndian.AppendUint32(nil, keyFeedEntry)
 	// The game sends an entry again whenever the feed is redrawn, so entries
 	// are told apart by object id.
@@ -322,8 +357,9 @@ func readKills(body []byte, clockAt func(off int) Clock) []Kill {
 		seen[id] = true
 		k.Clock = clockAt(at)
 		kills = append(kills, k)
+		offs = append(offs, at)
 	}
-	return kills
+	return kills, offs
 }
 
 // readProps calls fn for each property of the update whose first key starts

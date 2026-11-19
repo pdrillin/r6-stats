@@ -225,3 +225,43 @@ func TestSites(t *testing.T) {
 		t.Errorf("A rounds = %d, want 5", a.Rounds.Count)
 	}
 }
+
+func TestRooms(t *testing.T) {
+	at := func(k rec.Kill, killerRoom, victimRoom string) rec.Kill {
+		k.KillerRoom, k.VictimRoom = killerRoom, victimRoom
+		return k
+	}
+	r := compute(
+		&rec.Round{Winner: 0, Kills: []rec.Kill{
+			at(kill(10, "a1", "b1"), "EXT Front Yard", "2F Office"),
+			at(kill(20, "b2", "a2"), "2F Office", "2F Office"),
+			at(kill(30, "a1", "a3"), "2F Office", "2F Piano Room"), // team kill: a death, no kill
+			at(kill(40, "", "b3"), "", "2F Office"),
+			kill(50, "a1", "b4"), // rooms unknown
+		}},
+	)
+	rooms := map[string]Room{}
+	for _, rm := range r.Rooms {
+		if rm.Map != "Chalet" {
+			t.Errorf("room %s on map %q", rm.Room, rm.Map)
+		}
+		rooms[rm.Room] = *rm
+	}
+	want := map[string]Room{
+		"2F Office":      {Map: "Chalet", Room: "2F Office", Attack: RoomCount{Deaths: 1}, Defense: RoomCount{Kills: 1, Deaths: 2}},
+		"EXT Front Yard": {Map: "Chalet", Room: "EXT Front Yard", Attack: RoomCount{Kills: 1}},
+		"2F Piano Room":  {Map: "Chalet", Room: "2F Piano Room", Attack: RoomCount{Deaths: 1}},
+	}
+	if !reflect.DeepEqual(rooms, want) {
+		t.Errorf("rooms = %+v\nwant %+v", rooms, want)
+	}
+	if r.Rooms[0].Room != "2F Office" {
+		t.Errorf("rooms not sorted by deaths: first is %s", r.Rooms[0].Room)
+	}
+	if a1 := player(t, r, "a1"); !reflect.DeepEqual(a1.KillRooms, map[string]int{"EXT Front Yard": 1}) {
+		t.Errorf("a1 kill rooms = %v", a1.KillRooms)
+	}
+	if b1 := player(t, r, "b1"); !reflect.DeepEqual(b1.DeathRooms, map[string]int{"2F Office": 1}) {
+		t.Errorf("b1 death rooms = %v", b1.DeathRooms)
+	}
+}

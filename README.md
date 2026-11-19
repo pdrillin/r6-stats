@@ -8,6 +8,7 @@ Le parser est écrit de zéro en Go. Il est validé sur des replays de la saison
 
 - **En-tête** : map, équipes, score avant le round, joueurs avec opérateur et côté (attaque/défense), version du jeu.
 - **Événements** : kills horodatés (tueur, victime, headshot), pose du défuseur, site de bombe, vainqueur du round et raison.
+- **Positions** : pièce où se trouve chaque joueur pendant le round, et pièce du tueur et de la victime pour chaque kill.
 - **Matchs** : regroupement des rounds en matchs, y compris les parties privées rehostées (les enregistrements de rounds interrompus sont écartés).
 
 ## Statistiques
@@ -17,6 +18,7 @@ Le parser est écrit de zéro en Go. Il est validé sur des replays de la saison
 - Clutches : situations 1vX rencontrées et gagnées.
 - Avantages numériques : taux de victoire par situation (5v4, 3v2, 1v3…).
 - Sites de bombe : taux de victoire en attaque et en défense, et taux de pose, par site.
+- Pièces : kills et morts par pièce et par côté, et par joueur.
 
 ## Utilisation
 
@@ -26,6 +28,7 @@ Prérequis : Go 1.25 ou plus récent.
 go run ./cmd/r6rec ls <dossier>        # liste les rounds trouvés
 go run ./cmd/r6rec matches <dossier>   # matchs reconstitués, round par round
 go run ./cmd/r6rec stats <dossier>     # statistiques (ajouter -json pour la sortie JSON)
+go run ./cmd/r6rec rooms <dossier>     # kills et morts par pièce
 go run ./cmd/r6rec round <fichier.rec> # événements d'un round en JSON
 ```
 
