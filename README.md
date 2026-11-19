@@ -45,7 +45,7 @@ go run ./cmd/r6rec serve Replays          # API sur http://127.0.0.1:8080
 cd web && npm install && npm run dev      # interface sur http://localhost:5173
 ```
 
-L'interface permet aussi de comparer deux joueurs. Toutes les stats peuvent être filtrées par map ; le filtre se garde dans l'adresse de la page.
+L'interface s'ouvre sur le tableau de bord de ton équipe et propose une fiche de préparation contre chaque adversaire. Elle permet aussi de comparer deux joueurs. Toutes les stats peuvent être filtrées par map ; le filtre se garde dans l'adresse de la page.
 
 Pour servir l'interface construite directement depuis l'outil (Node n'est alors nécessaire que pour la construire) :
 

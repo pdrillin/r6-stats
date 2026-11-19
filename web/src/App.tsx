@@ -1,10 +1,12 @@
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { ComparePage } from "./pages/ComparePage";
+import { HomePage } from "./pages/HomePage";
 import { MatchPage } from "./pages/MatchPage";
 import { MatchesPage } from "./pages/MatchesPage";
 import { OverviewPage } from "./pages/OverviewPage";
 import { PlayerPage } from "./pages/PlayerPage";
 import { RoomsPage } from "./pages/RoomsPage";
+import { ScoutPage } from "./pages/ScoutPage";
 import { TeamPage } from "./pages/TeamPage";
 import { TeamsPage } from "./pages/TeamsPage";
 
@@ -20,8 +22,9 @@ export function App() {
         </NavLink>
         <nav>
           <NavLink to={keep("/")} end>
-            Joueurs
+            Mon équipe
           </NavLink>
+          <NavLink to={keep("/players")}>Joueurs</NavLink>
           <NavLink to={keep("/teams")}>Équipes</NavLink>
           <NavLink to={keep("/matches")}>Matchs</NavLink>
           <NavLink to={keep("/rooms")}>Pièces</NavLink>
@@ -30,10 +33,12 @@ export function App() {
       </header>
       <main>
         <Routes>
-          <Route path="/" element={<OverviewPage />} />
+          <Route path="/" element={<HomePage />} />
+          <Route path="/players" element={<OverviewPage />} />
           <Route path="/players/:id" element={<PlayerPage />} />
           <Route path="/teams" element={<TeamsPage />} />
           <Route path="/teams/:name" element={<TeamPage />} />
+          <Route path="/teams/:name/scout" element={<ScoutPage />} />
           <Route path="/matches" element={<MatchesPage />} />
           <Route path="/matches/:id" element={<MatchPage />} />
           <Route path="/rooms" element={<RoomsPage />} />

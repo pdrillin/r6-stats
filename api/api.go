@@ -79,6 +79,9 @@ type Overview struct {
 	Stats   *stats.Report `json:"stats"`
 	// TradeWindowMs is the trade window the statistics were computed with.
 	TradeWindowMs int `json:"tradeWindowMs"`
+	// OperatorSides tells the side of every operator seen in the headers:
+	// an operator only plays one side.
+	OperatorSides map[string]rec.Side `json:"operatorSides"`
 }
 
 // Server answers the API requests. Everything is computed once, when the
@@ -109,6 +112,16 @@ func New(matches []*match.Match, web string) *Server {
 		byMap[name] = append(byMap[name], m)
 	}
 	sort.Strings(maps)
+	sides := map[string]rec.Side{}
+	for _, m := range matches {
+		for _, rf := range m.Rounds {
+			for _, p := range rf.Header.Players {
+				if p.Operator != "" && (p.Side == rec.Attack || p.Side == rec.Defense) {
+					sides[p.Operator] = p.Side
+				}
+			}
+		}
+	}
 	for name, ms := range byMap {
 		s.overviews[name] = &Overview{
 			Map:           name,
@@ -116,6 +129,7 @@ func New(matches []*match.Match, web string) *Server {
 			Matches:       len(ms),
 			Stats:         stats.Compute(stats.Options{}, ms...),
 			TradeWindowMs: stats.DefaultTradeWindowMs,
+			OperatorSides: sides,
 		}
 	}
 	for _, m := range matches {

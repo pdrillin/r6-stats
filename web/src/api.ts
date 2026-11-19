@@ -116,6 +116,8 @@ export interface Overview {
   matches: number;
   stats: Report;
   tradeWindowMs: number;
+  /** The side each operator plays. */
+  operatorSides: Record<string, "attack" | "defense">;
 }
 
 export interface MatchSummary {

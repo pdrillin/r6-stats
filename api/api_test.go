@@ -86,6 +86,9 @@ func TestMatches(t *testing.T) {
 		t.Errorf("overview: %d %+v", code, o)
 	}
 
+	if o.OperatorSides["ASH"] != rec.Attack || o.OperatorSides["MUTE"] != rec.Defense {
+		t.Errorf("operator sides = %v", o.OperatorSides)
+	}
 	if o.Map != "" || len(o.Maps) != 1 || o.Maps[0] != "Chalet" {
 		t.Errorf("overview maps: %q %v", o.Map, o.Maps)
 	}

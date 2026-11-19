@@ -3,7 +3,8 @@ import type { Overview, Team } from "../api";
 import { TeamLineTable } from "../components/Breakdown";
 import { TimingChart } from "../components/charts";
 import { Loading } from "../components/Loading";
-import { MapFilter, useOverview } from "../components/MapFilter";
+import { FLink, MapFilter, useOverview } from "../components/MapFilter";
+import { scoutPath } from "../team";
 import { PlayerTable } from "../components/PlayerTable";
 import { Table } from "../components/Table";
 import { RecRatio, rate, sideLabel } from "../format";
@@ -41,6 +42,9 @@ function TeamView({ t, o }: { t: Team; o: Overview }) {
         </span>
       </h1>
       <MapFilter maps={o.maps} />
+      <p>
+        <FLink to={scoutPath(t.name)}>Fiche adversaire : préparer un match contre {t.name} →</FLink>
+      </p>
 
       <h2>Moment du round</h2>
       <p className="muted">Kills et morts des joueurs de l'équipe par tranche de 30 secondes de la phase d'action.</p>
