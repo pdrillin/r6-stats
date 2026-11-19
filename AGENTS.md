@@ -8,9 +8,11 @@ Statistiques de match avancées pour Rainbow Six Siege, calculées à partir des
 
 Produit prévu, pas encore construit :
 
-- **App Windows** (les joueurs sont sous Windows) : surveille le dossier `MatchReplay` du jeu et conserve les nouveaux matchs avant que le jeu ne les supprime ; d'abord en local avec les stats affichées sur place, puis en envoyant les matchs au serveur. Prévue avec Wails (backend Go + interface web dans WebView2).
-- **Serveur** : reçoit les `.rec` bruts, les parse, stocke les stats (Postgres) et conserve les fichiers bruts (stockage objet) pour pouvoir les re-parser quand le parser s'améliore.
-- **Interface web** : SPA React + TypeScript + Vite, partagée entre le site et l'app Windows.
+- **Serveur partagé** (priorité) : site privé par espace (équipe, ligue), connexion Discord, envoi des matchs par le navigateur. Il décode les `.rec` et stocke les données extraites, qui suffisent à tout afficher. Voir « Hébergement et stockage ».
+- **App Windows légère** (ensuite) : surveille le dossier `MatchReplay` du jeu, garde une archive des replays sur le PC du joueur (le jeu supprime les anciens) et les envoie automatiquement à l'espace. Elle n'embarque pas l'interface : les stats se consultent sur le site. Prévue avec Wails ou en simple programme Go.
+- **Interface web** : SPA React + TypeScript + Vite.
+
+L'app Windows locale complète (interface embarquée, sans serveur) a été écartée : elle ne servirait qu'à celui qui l'installe, alors que coach et coéquipiers doivent voir les stats.
 
 Le parsing se fait côté serveur : un changement de saison ne demande qu'une mise à jour du serveur. Aujourd'hui existent le parser Go, le regroupement en matchs, les stats, un outil en ligne de commande, une API JSON en lecture seule (`r6rec serve`, tout en mémoire, pas de base) et une première version de l'interface web qui la consomme.
 
@@ -61,6 +63,23 @@ Ordre retenu :
 
 1. **Équipe d'abord.** C'est le format validé (parties privées, rehosts), c'est là que les stats avancées apportent le plus, l'infrastructure est minime, et l'utilisateur et son équipe sont les premiers utilisateurs.
 2. **Ligue ensuite** : même format de replay (enregistrements en spectateur, comme le corpus) ; il faut surtout des vues de classement, la gestion des équipes inscrites et un accès public en lecture si la ligue le souhaite.
+
+## Hébergement et stockage
+
+**Hébergement et monétisation** : bêta fermée et gratuite d'abord (l'équipe de l'utilisateur, puis 2 ou 3 équipes ou une petite ligue), pour valider l'utilité avant toute monétisation. Coût visé : moins de 20 € par mois (petit VPS, domaine). Prévoir dès le départ un plan par espace (quotas d'historique et de stockage, durée de conservation des bruts) pour permettre plus tard un modèle freemium par équipe ou une offre par saison pour les ligues. Pas de publicité. Avant une ouverture publique : une marque propre (pas « R6 » ni les marques de Ubisoft), statut, CGU, RGPD.
+
+**Les données extraites suffisent à tout afficher** : rien de ce que voit l'utilisateur ne dépend des replays bruts. Les bruts ne servent qu'à une nouvelle analyse (nouvelle information décodée, correction d'un bug de décodage) et aux contestations en ligue.
+
+**Conservation des bruts** : tout garder pendant la bêta (peu de volume, parser qui progresse vite). Ensuite, conservation limitée (30 à 90 jours, plus longue pour les matchs officiels d'une ligue), puis suppression. L'archive locale de l'app Windows sert de filet de sécurité : elle peut renvoyer d'anciens fichiers à ré-analyser.
+
+**Stockage** (une seule base, SQLite pour commencer, Postgres si une grosse ligue l'exige) :
+
+- **Tables classiques** pour ce qu'on liste et filtre : espaces, membres, invitations, fichiers reçus, liens fichier ↔ espace, types de match, joueurs qui forment « nous ».
+- **Un bloc par round** pour le détail : le JSON que produit le décodage (en-tête complet, propriétés brutes comprises, et round), compressé en zstd, avec la version du parser qui l'a produit (`rec.Version`). Environ 5 Ko par round. Pas de requête SQL dedans : le serveur charge les rounds d'un espace et calcule en Go. Pas de tables par événement (kills, positions…) : chaque amélioration du parser imposerait une migration.
+- **Les stats ne sont jamais stockées** : calculées en mémoire à partir des rounds de l'espace (quelques millisecondes), gardées en mémoire, oubliées à chaque changement. Toute évolution d'une définition s'applique ainsi à tout l'historique.
+- **Bruts** : rangés par SHA-256 (`raw/3f/a2/3fa2….rec`), sur disque puis stockage objet. Un fichier envoyé par plusieurs personnes ou les deux équipes d'un pracc n'est stocké et décodé qu'une fois ; chaque espace n'en voit que ses propres liens.
+- **Conséquences quand les bruts sont supprimés** : les données extraites deviennent la seule copie, donc sauvegarde continue de la base hors du serveur et restauration testée. Une information décodée plus tard n'existera que pour les matchs envoyés après : l'interface affiche « non disponible pour ce match », jamais un zéro trompeur.
+- **Nouvelle version du parser** : les rounds dont le brut existe encore sont re-décodés en tâche de fond ; les autres gardent leur analyse.
 
 ## Travailler avec l'utilisateur
 
@@ -195,10 +214,15 @@ Entiers en little-endian sauf mention contraire.
 ## Prochaines étapes
 
 1. **Replays de l'équipe de l'utilisateur** (praccs et officiels, enregistrés en joueur et non en spectateur). Vérifier les noms d'équipe dans les parties privées (vrais noms ou « Team 1 »), les profile ids (remplis ou à zéro), le joueur qui enregistre (`RecordingProfileID`), et comment reconnaître « notre » équipe. Le format du ranked n'est à examiner que s'il devient utile.
-2. **App Windows en local** (Wails), sans serveur (cache des rounds et stockage local faits) : lit le dossier `MatchReplay`, conserve les replays avant que le jeu ne les supprime, embarque l'API (`api/`) et l'interface construite (`web/dist`).
+2. **Fait** : cache des rounds décodés et stockage local (`r6rec serve`), qui servent de base au serveur.
 3. **Vues « équipe »** (faits : accueil d'équipe, fiche adversaire, type pracc ou officiel et son filtre) : à compléter avec la reconnaissance de « nous » par les joueurs plutôt que par le nom, la revue d'un round (positions au fil du temps), et un minimum de rounds sur la page Joueurs.
-4. **Serveur partagé** quand plusieurs membres mettent leurs replays en commun : espaces privés, comptes Discord, rôles et invitations, envoi des `.rec`, Postgres, stockage objet.
-5. **Ligue** : espace à plusieurs équipes, classements, publication facultative.
+4. **Serveur partagé**, avant l'app Windows (voir « Hébergement et stockage ») :
+   1. cœur testable en local : base SQLite, stockage des bruts, envoi et décodage des matchs, espaces, API propre à chaque espace ;
+   2. connexion Discord, invitations, rôles ;
+   3. interface : connexion, choix de l'espace, envoi par glisser-déposer, membres ;
+   4. mise en ligne (VPS, domaine, HTTPS avec Caddy, sauvegardes) : l'utilisateur fournit l'hébergement, le domaine et l'application Discord.
+5. **App Windows légère** : surveillance de `MatchReplay`, archive locale, envoi automatique à l'espace.
+6. **Ligue** : espace à plusieurs équipes, classements, publication facultative.
 
 Le filtre par période attend d'avoir plusieurs semaines de parties. Pas de tracker public (voir « Utilisations visées »).
 
