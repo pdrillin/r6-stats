@@ -12,7 +12,7 @@ Produit prévu, pas encore construit :
 - **Serveur** : reçoit les `.rec` bruts, les parse, stocke les stats (Postgres) et conserve les fichiers bruts (stockage objet) pour pouvoir les re-parser quand le parser s'améliore.
 - **Interface web** : SPA React + TypeScript + Vite, partagée entre le site et l'app Windows.
 
-Le parsing se fait côté serveur : un changement de saison ne demande qu'une mise à jour du serveur. Aujourd'hui existent le parser Go, le regroupement en matchs, les stats et un outil en ligne de commande.
+Le parsing se fait côté serveur : un changement de saison ne demande qu'une mise à jour du serveur. Aujourd'hui existent le parser Go, le regroupement en matchs, les stats, un outil en ligne de commande, une API JSON en lecture seule (`r6rec serve`, tout en mémoire, pas de base) et une première version de l'interface web qui la consomme.
 
 ## Travailler avec l'utilisateur
 
@@ -34,9 +34,20 @@ go run ./cmd/r6rec split side Replays  # stats par côté (aussi : map, operator
 go run ./cmd/r6rec round <fichier.rec>  # événements décodés d'un round
 go run ./cmd/r6rec header -raw <fichier.rec>
 go run ./cmd/r6rec dump <fichier.rec> <sortie.bin>  # corps décompressé, pour la rétro-ingénierie
+go run ./cmd/r6rec serve Replays     # API JSON sur 127.0.0.1:8080 (-addr, -web web/dist)
 ```
 
-La CI (`.github/workflows/test.yml`) lance gofmt, vet, les tests et la compilation Windows. `gofmt -l .` doit rester vide.
+Interface web (Node 24, dossier `web/`) :
+
+```sh
+cd web && npm install
+npm run dev     # http://localhost:5173, /api relayé vers r6rec serve (port 8080, ou R6_API)
+npm run build   # vérifie les types puis produit web/dist
+```
+
+En développement, lancer `r6rec serve Replays` d'un côté et `npm run dev` de l'autre. Pour servir l'interface construite sans Node : `r6rec serve -web web/dist Replays`.
+
+La CI (`.github/workflows/test.yml`) lance gofmt, vet, les tests et la compilation Windows, et un job séparé construit l'interface web. `gofmt -l .` doit rester vide.
 
 ## Corpus de replays
 
@@ -56,7 +67,16 @@ Organisation : `Replays/<série>/<n> - <map>/Match-<date>-<id>/Match-...-RNN.rec
 | `rec/` | Format de fichier : en-tête (`rec.go`), identifiants de maps (`maps.go`), événements du corps et vainqueur du round (`round.go`) |
 | `match/` | Regroupe les rounds en matchs, gère les rehosts ; `Roster` complète une équipe manquante |
 | `stats/` | Duels d'ouverture, trades, clutches, conversion des avantages numériques |
+| `api/` | API JSON pour l'interface : `/api/overview`, `/api/matches`, `/api/matches/{id}` ; sert aussi l'interface construite (repli sur `index.html` pour les routes de la SPA) |
 | `cmd/r6rec/` | Outil en ligne de commande |
+| `web/` | Interface React + TypeScript + Vite. `src/api.ts` reprend à la main les types JSON de Go : un champ ajouté côté Go doit y être ajouté aussi |
+
+Interface web :
+
+- Pages : joueurs (`/`), équipes, détail d'une équipe (côtés, maps, sites, situations), matchs, détail d'un match (rounds dépliables avec kill feed et opérateurs), détail d'un joueur (cartes, ventilation par côté/map/opérateur, pièces), pièces par map.
+- Textes en français. Thème clair ou sombre selon le système. Pas de bibliothèque d'UI : `src/style.css` et un composant `Table` triable.
+- Un pourcentage s'affiche toujours avec son échantillon (`Ratio` : « 35 % 8/23 »), grisé sous 10 cas (`SMALL_SAMPLE`). Pour les ouvertures, la fréquence (« 1er kill ») et la conversion (« Gagnés après ») sont dans deux colonnes séparées.
+- Identifiant d'un match : `id` d'en-tête du premier enregistrement. Identifiant d'un joueur : `Player.ID` (profile id, ou `name:` + pseudo).
 
 ## Format de fichier (rétro-ingénierie, Y11S2)
 
@@ -114,6 +134,7 @@ Entiers en little-endian sauf mention contraire.
 ## Prochaines étapes
 
 1. Récupérer des replays de ranked sur le PC de l'utilisateur pour vérifier `matchtype`, les profile ids et les différences avec les fichiers de tournoi.
-2. Ensuite le serveur, l'interface web et l'app Windows.
+2. Interface web : la compléter selon les retours (graphiques, filtres par map ou par période, comparaison de joueurs).
+3. Serveur (envoi des `.rec`, Postgres, stockage objet), puis l'app Windows qui réutilise l'interface.
 
 Toujours afficher la taille de l'échantillon à côté d'un pourcentage : les clutches et les situations rares reposent sur peu de cas.

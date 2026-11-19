@@ -1,0 +1,61 @@
+import { useParams } from "react-router-dom";
+import { useApi, type Overview, type Team } from "../api";
+import { TeamLineTable } from "../components/Breakdown";
+import { Loading } from "../components/Loading";
+import { PlayerTable } from "../components/PlayerTable";
+import { Table } from "../components/Table";
+import { RecRatio, rate, sideLabel } from "../format";
+import { Situations } from "./TeamsPage";
+
+export function TeamPage() {
+  const { name = "" } = useParams();
+  const state = useApi<Overview>("overview");
+  return (
+    <Loading state={state}>
+      {(o) => {
+        const t = o.stats.teams.find((x) => x.name === name);
+        return t ? <TeamView t={t} o={o} /> : <p className="error">Équipe introuvable.</p>;
+      }}
+    </Loading>
+  );
+}
+
+function TeamView({ t, o }: { t: Team; o: Overview }) {
+  return (
+    <>
+      <h1>
+        {t.name} <span className="h1-sub">
+          <RecRatio r={t.rounds} /> rounds gagnés
+        </span>
+      </h1>
+
+      <h2>Par côté</h2>
+      <TeamLineTable lines={t.bySide} label="Côté" keyLabel={sideLabel} />
+
+      <h2>Par map</h2>
+      <TeamLineTable lines={t.byMap} label="Map" />
+
+      <h2>Sites de bombe</h2>
+      <p className="muted">Rounds gagnés en attaque et en défense sur chaque site ; poses : rounds d'attaque avec pose, et gagnés.</p>
+      <Table
+        rows={t.sites ?? []}
+        rowKey={(s) => s.map + "|" + s.site}
+        initialSort={0}
+        group={(s) => s.map}
+        columns={[
+          { label: "Map", text: true, sort: (s) => s.map, render: (s) => s.map },
+          { label: "Site", text: true, sort: (s) => s.site, render: (s) => s.site },
+          { label: "Attaque", sort: (s) => rate(s.attack.won, s.attack.count), render: (s) => <RecRatio r={s.attack} /> },
+          { label: "Poses", sort: (s) => rate(s.plants.count, s.attack.count), render: (s) => <RecRatio r={s.plants} /> },
+          { label: "Défense", sort: (s) => rate(s.defense.won, s.defense.count), render: (s) => <RecRatio r={s.defense} /> },
+        ]}
+      />
+
+      <h2>Avantages numériques</h2>
+      <Situations teams={[t]} />
+
+      <h2>Joueurs</h2>
+      <PlayerTable players={o.stats.players.filter((p) => p.team === t.name)} byTeam={false} />
+    </>
+  );
+}

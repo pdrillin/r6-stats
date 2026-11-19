@@ -1,6 +1,7 @@
 package stats
 
 import (
+	"encoding/json"
 	"reflect"
 	"testing"
 
@@ -186,6 +187,28 @@ func TestSituations(t *testing.T) {
 	}
 	if len(a.Situations) != 3 {
 		t.Errorf("A went through %d situations, want 3", len(a.Situations))
+	}
+}
+
+func TestSituationsJSON(t *testing.T) {
+	r := compute(&rec.Round{Winner: 0, Kills: []rec.Kill{kill(10, "a1", "b1"), kill(20, "b2", "a1")}})
+	b, err := json.Marshal(r.Teams[0])
+	if err != nil {
+		t.Fatal(err)
+	}
+	var got struct {
+		Name       string `json:"name"`
+		Situations []struct {
+			Own, Enemy, Count, Won int
+		} `json:"situations"`
+	}
+	if err := json.Unmarshal(b, &got); err != nil {
+		t.Fatal(err)
+	}
+	// 5v4 then 4v4, biggest advantage first.
+	want := []struct{ Own, Enemy, Count, Won int }{{5, 4, 1, 1}, {4, 4, 1, 1}}
+	if got.Name != "A" || !reflect.DeepEqual(got.Situations, want) {
+		t.Errorf("got %s %+v, want A %+v", got.Name, got.Situations, want)
 	}
 }
 

@@ -4,8 +4,10 @@ package main
 import (
 	"bufio"
 	"encoding/json"
+	"flag"
 	"fmt"
 	"io/fs"
+	"net/http"
 	"os"
 	"path/filepath"
 	"sort"
@@ -13,6 +15,7 @@ import (
 	"strings"
 	"text/tabwriter"
 
+	"github.com/pdrillin/r6-stats/api"
 	"github.com/pdrillin/r6-stats/match"
 	"github.com/pdrillin/r6-stats/rec"
 	"github.com/pdrillin/r6-stats/stats"
@@ -27,6 +30,9 @@ const usage = `usage:
                                 (default 15, 0 for all)
   r6rec split side|map|operator <dir>...
                                 player and team stats split by side, map or operator
+  r6rec serve [-addr host:port] [-web dir] <dir>...
+                                serve the statistics to the web interface
+                                (-web: built interface, e.g. web/dist)
   r6rec header [-raw] <file>    header of one round as JSON (-raw: every property)
   r6rec round <file>            events of one round as JSON
   r6rec dump <file> <out>       write the decompressed body to <out>
@@ -49,6 +55,8 @@ func main() {
 		err = rooms(os.Args[2:])
 	case "split":
 		err = split(os.Args[2:])
+	case "serve":
+		err = serve(os.Args[2:])
 	case "header":
 		err = header(os.Args[2:])
 	case "round":
@@ -516,4 +524,21 @@ func split(args []string) error {
 		}
 	}
 	return w.Flush()
+}
+
+func serve(args []string) error {
+	fl := flag.NewFlagSet("serve", flag.ExitOnError)
+	addr := fl.String("addr", "127.0.0.1:8080", "address to listen on")
+	web := fl.String("web", "", "folder of the built web interface")
+	fl.Parse(args)
+	if fl.NArg() == 0 {
+		fmt.Fprint(os.Stderr, usage)
+		os.Exit(2)
+	}
+	ms, err := load(fl.Args())
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(os.Stderr, "%d matches loaded, listening on http://%s\n", len(ms), *addr)
+	return http.ListenAndServe(*addr, api.New(ms, *web))
 }

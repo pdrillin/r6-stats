@@ -37,6 +37,20 @@ go run ./cmd/r6rec split side <dossier>  # stats par côté (aussi : map, operat
 go run ./cmd/r6rec round <fichier.rec> # événements d'un round en JSON
 ```
 
+### Interface web
+
+```sh
+go run ./cmd/r6rec serve Replays          # API sur http://127.0.0.1:8080
+cd web && npm install && npm run dev      # interface sur http://localhost:5173
+```
+
+Pour servir l'interface construite directement depuis l'outil (Node n'est alors nécessaire que pour la construire) :
+
+```sh
+cd web && npm run build && cd ..
+go run ./cmd/r6rec serve -web web/dist Replays   # tout sur http://127.0.0.1:8080
+```
+
 Sous Windows, les replays sont dans le dossier `MatchReplay` du jeu, avec un sous-dossier par match.
 
 Pour installer l'outil sans cloner le dépôt :
@@ -58,7 +72,9 @@ GOOS=windows GOARCH=amd64 go build -o r6rec.exe ./cmd/r6rec
 | `rec/` | Lecture des fichiers `.rec` : en-tête, décompression, événements du round |
 | `match/` | Regroupement des rounds en matchs, gestion des rehosts |
 | `stats/` | Calcul des statistiques |
+| `api/` | API JSON servie à l'interface web |
 | `cmd/r6rec/` | Outil en ligne de commande |
+| `web/` | Interface web (React, TypeScript, Vite) |
 
 ## Tests
 

@@ -2,6 +2,7 @@
 package stats
 
 import (
+	"encoding/json"
 	"sort"
 
 	"github.com/pdrillin/r6-stats/match"
@@ -33,6 +34,9 @@ func (r *Record) add(won bool) {
 
 // Player holds the totals of one player.
 type Player struct {
+	// ID identifies the player across rounds: the Ubisoft profile id when
+	// the replay has one, "name:" and the player name otherwise.
+	ID     string `json:"id"`
 	Name   string `json:"name"`
 	Team   string `json:"team"`
 	Rounds int    `json:"rounds"`
@@ -115,6 +119,39 @@ type Team struct {
 	// BySide and ByMap split the team's rounds by side and by map.
 	BySide map[string]*TeamLine `json:"bySide"`
 	ByMap  map[string]*TeamLine `json:"byMap"`
+}
+
+// SituationRecord is one entry of a team's situations.
+type SituationRecord struct {
+	Situation
+	Record
+}
+
+// SituationList returns the team's situations, biggest advantage first, then
+// most players alive.
+func (t *Team) SituationList() []SituationRecord {
+	out := make([]SituationRecord, 0, len(t.Situations))
+	for s, r := range t.Situations {
+		out = append(out, SituationRecord{s, *r})
+	}
+	sort.Slice(out, func(i, j int) bool {
+		a, b := out[i].Situation, out[j].Situation
+		if a.Own-a.Enemy != b.Own-b.Enemy {
+			return a.Own-a.Enemy > b.Own-b.Enemy
+		}
+		return a.Own > b.Own
+	})
+	return out
+}
+
+// MarshalJSON writes Situations as a list, since JSON object keys can only be
+// strings.
+func (t *Team) MarshalJSON() ([]byte, error) {
+	type plain Team
+	return json.Marshal(struct {
+		*plain
+		Situations []SituationRecord `json:"situations"`
+	}{(*plain)(t), t.SituationList()})
 }
 
 // Site holds a team's rounds on one bomb site.
@@ -234,7 +271,7 @@ func (c *collector) player(p rec.Player, team string) *Player {
 	}
 	pl := c.players[key]
 	if pl == nil {
-		pl = &Player{Name: p.Name, Team: team, Clutches: map[int]*Record{},
+		pl = &Player{ID: key, Name: p.Name, Team: team, Clutches: map[int]*Record{},
 			KillRooms: map[string]int{}, DeathRooms: map[string]int{},
 			BySide: map[string]*Line{}, ByMap: map[string]*Line{}, ByOperator: map[string]*Line{}}
 		c.players[key] = pl

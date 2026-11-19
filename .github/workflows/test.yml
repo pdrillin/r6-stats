@@ -17,3 +17,19 @@ jobs:
       # Le corpus de replays n'est pas versionné : les tests qui en dépendent sont ignorés.
       - run: go test ./...
       - run: GOOS=windows GOARCH=amd64 go build -o r6rec.exe ./cmd/r6rec
+
+  web:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: web
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+      # Vérifie les types (tsc) puis produit web/dist.
+      - run: npm run build
