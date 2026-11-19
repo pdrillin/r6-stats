@@ -18,8 +18,8 @@ export function LineTable({ lines, label, keyLabel }: { lines: Record<string, Li
       sort: (r) => rate(r.line.won, r.line.rounds),
       render: (r) => <Ratio n={r.line.won} of={r.line.rounds} />,
     },
-    { label: "K", sort: (r) => r.line.kills, render: (r) => r.line.kills },
-    { label: "D", sort: (r) => r.line.deaths, render: (r) => r.line.deaths },
+    { label: "Kills", sort: (r) => r.line.kills, render: (r) => r.line.kills },
+    { label: "Morts", sort: (r) => r.line.deaths, render: (r) => r.line.deaths },
     {
       label: "+/−",
       sort: (r) => r.line.kills - r.line.deaths,
@@ -28,27 +28,29 @@ export function LineTable({ lines, label, keyLabel }: { lines: Record<string, Li
         return <span className={d >= 0 ? "pos" : "neg"}>{diff(d)}</span>;
       },
     },
-    { label: "A", sort: (r) => r.line.assists, render: (r) => r.line.assists },
+    { label: "Assists", extra: true, sort: (r) => r.line.assists, render: (r) => r.line.assists },
     {
       label: "KOST",
+      title: "Part des rounds où le joueur a été utile : kill, pose ou désamorçage, survie, ou mort vengée.",
       sort: (r) => rate(r.line.kost, r.line.rounds),
       render: (r) => <Ratio n={r.line.kost} of={r.line.rounds} />,
     },
     {
       label: "Survie",
+      extra: true,
       sort: (r) => rate(r.line.survived, r.line.rounds),
       render: (r) => <Ratio n={r.line.survived} of={r.line.rounds} />,
     },
     {
-      label: "Ouv. K–D",
-      title: "Premiers kills et premières morts du round",
+      label: "Premier kill – première mort",
+      title: "Nombre de rounds où il fait le premier kill, et nombre où il meurt le premier.",
       sort: (r) => r.line.openingKills - r.line.openingDeaths,
       render: (r) => `${r.line.openingKills}–${r.line.openingDeaths}`,
     },
-    { label: "Poses", sort: (r) => r.line.plants, render: (r) => r.line.plants || "–" },
-    { label: "Désam.", sort: (r) => r.line.defuses, render: (r) => r.line.defuses || "–" },
+    { label: "Poses", extra: true, sort: (r) => r.line.plants, render: (r) => r.line.plants || "–" },
+    { label: "Désamorçages", extra: true, sort: (r) => r.line.defuses, render: (r) => r.line.defuses || "–" },
   ];
-  return <Table rows={rows(lines)} columns={columns} rowKey={(r) => r.key} initialSort={1} />;
+  return <Table rows={rows(lines)} columns={columns} rowKey={(r) => r.key} initialSort={1} id="line" />;
 }
 
 /**
@@ -99,7 +101,8 @@ export function TeamLineTable({ lines, label, keyLabel }: { lines: Record<string
       deaths: r.line.openingDeaths,
     })),
     {
-      label: "Morts tradées",
+      label: "Morts vengées",
+      title: "Part des morts vengées par un coéquipier dans les 5 secondes.",
       sort: (r) => rate(r.line.tradedDeaths, r.line.deaths),
       render: (r) => <Ratio n={r.line.tradedDeaths} of={r.line.deaths} />,
     },

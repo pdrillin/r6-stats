@@ -68,7 +68,7 @@ function TeamView({ t, o }: { t: Team; o: Overview }) {
         initialSort={0}
         group={(s) => s.map}
         columns={[
-          { label: "Map", text: true, sort: (s) => s.map, render: (s) => s.map },
+          { label: "Map", text: true, noCard: true, sort: (s) => s.map, render: (s) => s.map },
           { label: "Site", text: true, sort: (s) => s.site, render: (s) => s.site },
           { label: "Attaque", sort: (s) => rate(s.attack.won, s.attack.count), render: (s) => <RecRatio r={s.attack} /> },
           { label: "Poses", sort: (s) => rate(s.plants.count, s.attack.count), render: (s) => <RecRatio r={s.plants} /> },

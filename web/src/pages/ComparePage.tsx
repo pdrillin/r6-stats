@@ -147,7 +147,7 @@ function rows(a: Player, b: Player): { section: string; rows: Row[] }[] {
           title: "Rounds où le joueur meurt le premier",
         }),
         row("Kills de trade par round", per((p) => p.tradeKills), { title: "Kills qui vengent un coéquipier tué dans les 5 secondes" }),
-        row("Morts tradées", pct((p) => p.tradedDeaths, (p) => p.deaths), { title: "Morts vengées par un coéquipier dans les 5 secondes" }),
+        row("Morts vengées", pct((p) => p.tradedDeaths, (p) => p.deaths), { title: "Morts vengées par un coéquipier dans les 5 secondes" }),
         row("Clutches gagnés", pct((p) => clutchTotal(p).won, (p) => clutchTotal(p).count)),
       ],
     },

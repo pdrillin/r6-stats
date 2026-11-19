@@ -72,7 +72,7 @@ function PlayerView({ p, filter }: { p: Player; filter: ReactNode }) {
         <Card label="Headshots"><Ratio n={p.headshots} of={p.kills} /></Card>
         <Card label="Premier kill"><RecCount r={p.openingKills} /></Card>
         <Card label="Première mort"><RecCount r={p.openingDeaths} /></Card>
-        <Card label="Morts tradées"><Ratio n={p.tradedDeaths} of={p.deaths} /></Card>
+        <Card label="Morts vengées"><Ratio n={p.tradedDeaths} of={p.deaths} /></Card>
         <Card label="Kills de trade">{p.tradeKills}</Card>
         <Card label="Poses"><RecCount r={p.plants} /></Card>
         <Card label="Désamorçages">{p.defuses}</Card>

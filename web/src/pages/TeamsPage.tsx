@@ -22,7 +22,8 @@ const columns: Column<Team>[] = [
   },
   ...openingColumns((t: Team) => ({ rounds: t.rounds.count, kills: t.openingKills, deaths: t.openingDeaths })),
   {
-    label: "Morts tradées",
+    label: "Morts vengées",
+    title: "Part des morts vengées par un coéquipier dans les 5 secondes.",
     sort: (t) => rate(t.tradedDeaths, t.deaths),
     render: (t) => <Ratio n={t.tradedDeaths} of={t.deaths} />,
   },
