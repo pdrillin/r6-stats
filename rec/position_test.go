@@ -117,3 +117,64 @@ func TestCorpusPlanter(t *testing.T) {
 	}
 	t.Logf("%d plants, %d credited", plants, credited)
 }
+
+// TestCorpusScoreboards checks the scoreboard gains against the kill feed.
+// Deaths must match for every player. Kills must match for every team, but
+// not always for every player: when a player is downed by one enemy and
+// finished by another, the feed names the finisher while the scoreboard can
+// credit the kill to the first and an assist to the second.
+func TestCorpusScoreboards(t *testing.T) {
+	if testing.Short() {
+		t.Skip("decompresses the whole corpus")
+	}
+	var players, sameKills, assists int
+	for _, p := range corpus(t) {
+		f, err := Open(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		r, err := f.Round()
+		if err != nil {
+			t.Fatal(err)
+		}
+		if !r.Complete {
+			continue
+		}
+		name := filepath.Base(p)
+		kills, deaths := map[string]int{}, map[string]int{}
+		var teamFeed, teamBoard [2]int
+		team := map[string]int{}
+		for _, k := range r.Kills {
+			deaths[k.Victim]++
+			team[k.Victim] = k.VictimTeam
+			if k.Killer != "" && k.KillerTeam != k.VictimTeam && (k.KillerTeam == 0 || k.KillerTeam == 1) {
+				kills[k.Killer]++
+				team[k.Killer] = k.KillerTeam
+				teamFeed[k.KillerTeam]++
+			}
+		}
+		for _, pl := range f.Header.Players {
+			team[pl.Name] = pl.Team
+		}
+		for pl, sb := range r.Scoreboards {
+			players++
+			assists += sb.Assists
+			if sb.Deaths != deaths[pl] {
+				t.Errorf("%s: %s scoreboard %d deaths, feed %d", name, pl, sb.Deaths, deaths[pl])
+			}
+			if sb.Kills == kills[pl] {
+				sameKills++
+			}
+			if tm, ok := team[pl]; ok && (tm == 0 || tm == 1) {
+				teamBoard[tm] += sb.Kills
+			}
+			if sb.Assists < 0 || sb.Assists > 4 {
+				t.Errorf("%s: %s has %d assists", name, pl, sb.Assists)
+			}
+		}
+		if len(f.Header.Players) == 10 && teamFeed != teamBoard {
+			t.Errorf("%s: team kills feed %v, scoreboard %v", name, teamFeed, teamBoard)
+		}
+	}
+	t.Logf("%d player-rounds, %d with the same kills as the feed, %d assists", players, sameKills, assists)
+}

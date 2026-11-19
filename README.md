@@ -13,6 +13,7 @@ Le parser est écrit de zéro en Go. Il est validé sur des replays de la saison
 
 ## Statistiques
 
+- Assists, lus dans le tableau des scores du jeu.
 - KOST : part des rounds avec un kill, une pose, une survie ou une mort tradée (les désamorçages ne sont pas encore comptés), et taux de survie.
 - Duels d'ouverture : premier kill et première mort, avec le taux de victoire du round qui suit.
 - Trades : morts vengées dans les 5 secondes, kills de vengeance.

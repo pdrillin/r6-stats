@@ -40,6 +40,10 @@ type Player struct {
 	Kills     int `json:"kills"` // enemies only
 	Deaths    int `json:"deaths"`
 	Headshots int `json:"headshots"`
+	// Assists come from the in-game scoreboard. It can credit a kill to the
+	// player who downed the victim and an assist to the one the kill feed
+	// names, so Kills + Assists is a better total than either alone.
+	Assists int `json:"assists"`
 
 	// OpeningKills counts the rounds where the player got the first kill,
 	// and how many of those rounds the team won. OpeningDeaths likewise for
@@ -254,6 +258,7 @@ func (c *collector) round(mapName string, teams [2]string, roster []rec.Player, 
 		}
 		pl := c.player(p, teams[p.Team])
 		pl.Rounds++
+		pl.Assists += r.Scoreboards[p.Name].Assists
 		byName[p.Name] = pl
 		alive[p.Team][p.Name] = true
 	}

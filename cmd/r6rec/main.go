@@ -248,9 +248,9 @@ func matches(roots []string) error {
 		}
 		w.Flush()
 
-		fmt.Fprintln(w, "  PLAYER\tTEAM\tK\tD\tHS")
+		fmt.Fprintln(w, "  PLAYER\tTEAM\tK\tD\tA\tHS")
 		for _, p := range stats.Compute(stats.Options{}, m).Players {
-			fmt.Fprintf(w, "  %s\t%s\t%d\t%d\t%d\n", p.Name, p.Team, p.Kills, p.Deaths, p.Headshots)
+			fmt.Fprintf(w, "  %s\t%s\t%d\t%d\t%d\t%d\n", p.Name, p.Team, p.Kills, p.Deaths, p.Assists, p.Headshots)
 		}
 		w.Flush()
 	}
@@ -287,10 +287,10 @@ func statistics(args []string) error {
 	fmt.Println("KOST: rounds with a kill, a plant, survival or a traded death (defuses are not decoded).")
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "\nPLAYER\tTEAM\tRNDS\tK\tD\tKOST\tSURVIVED\tOPENING KILLS\tOPENING DEATHS\tTRADE KILLS\tDEATHS TRADED\tPLANTS\tCLUTCHES")
+	fmt.Fprintln(w, "\nPLAYER\tTEAM\tRNDS\tK\tD\tA\tKOST\tSURVIVED\tOPENING KILLS\tOPENING DEATHS\tTRADE KILLS\tDEATHS TRADED\tPLANTS\tCLUTCHES")
 	for _, p := range rep.Players {
-		fmt.Fprintf(w, "%s\t%s\t%d\t%d\t%d\t%s\t%s\t%s\t%s\t%d\t%s\t%s\t%s\n",
-			p.Name, p.Team, p.Rounds, p.Kills, p.Deaths,
+		fmt.Fprintf(w, "%s\t%s\t%d\t%d\t%d\t%d\t%s\t%s\t%s\t%s\t%d\t%s\t%s\t%s\n",
+			p.Name, p.Team, p.Rounds, p.Kills, p.Deaths, p.Assists,
 			ratio(p.KOST, p.Rounds), ratio(p.Survived, p.Rounds),
 			record(p.OpeningKills), record(p.OpeningDeaths),
 			p.TradeKills, ratio(p.TradedDeaths, p.Deaths), record(p.Plants), clutches(p.Clutches))

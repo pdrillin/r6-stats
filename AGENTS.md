@@ -82,6 +82,7 @@ Entiers en little-endian sauf mention contraire.
   - **Positions des joueurs** : `0xaf9899ca` = `ffffffffffffffff`, puis l'élément indexé `[0]` = nom de la pièce (vide si mort ou pas encore déployé), `[1]` = un octet.
 - **Rattachement des positions aux joueurs** (`rec/position.go`) : dans l'état initial, chaque joueur a un bloc qui commence par son nom (clé `0x07949bdc`) et se termine au nom suivant. Le bloc contient deux objets de position : le **premier suit la vue** (drone en préparation, caméras), le **second suit le corps**. Validé sur le corpus : le corps passe à vide au moment de la mort annoncée par le kill feed (532 cas sur 556 ; les autres ne sont pas remis à zéro mais la dernière pièce connue reste juste), et les défenseurs démarrent sur leur site dans 74 rounds sur 79.
 - **Tableau des scores** : un objet par joueur, envoyé juste avant l'objet qui porte son nom dans l'état initial. Compteurs cumulés sur la session d'enregistrement (u32) : `0x1cd2b19d` kills, `0xcd9c5d72` morts, `0x4d737f9e` assists, `0x31a3d4d2` poses de défuseur, `0xecda4f80` score, `0x8310f4f4` jamais mis à jour dans le corpus. Aucun compteur de désamorçages trouvé.
+- **Gains par round** (`Round.Scoreboards`) : dernière valeur vue moins la première, pour chaque compteur. Les morts concordent avec le kill feed pour les 800 joueur-rounds du corpus et les kills par équipe pour tous les rounds. Les kills par joueur diffèrent dans 24 cas : joueur mis à terre par l'un et achevé par l'autre, le feed nomme celui qui achève, le tableau des scores peut créditer le kill à l'autre et l'assist à celui qui achève. Le parser prend les kills du feed et les assists du tableau des scores.
 - **Poseur** : le joueur dont le compteur `0x31a3d4d2` augmente pendant le round (la première valeur vue sert de référence). Les 21 poses du corpus sont attribuées à un attaquant. Quand le round se termine dans le même tick que la pose (Lair, round 2), le chrono ne passe jamais au compte à rebours : la pose est alors datée par ce compteur.
 - La pièce d'un kill est la dernière pièce non vide du corps avant le kill, en comptant les mises à jour du même tick de chrono (elles arrivent parfois juste après l'entrée du feed). Connue pour les 555 kills du corpus.
 - Les noms de pièces peuvent différer légèrement des étiquettes de site (`"1F  Kitchen Cooking"` avec deux espaces sur Kafe) : le parser normalise les espaces.
@@ -109,7 +110,7 @@ Entiers en little-endian sauf mention contraire.
 
 ## Prochaines étapes
 
-1. Exploiter les assists du tableau des scores. Le désamorceur reste inconnu (il manque au KOST) : piste, le défenseur présent dans une pièce du site au moment du désamorçage. Site, positions, poseur et KOST sont faits.
+1. Le désamorceur reste inconnu (il manque au KOST) : piste, le défenseur présent dans une pièce du site au moment du désamorçage. Site, positions, poseur, KOST et assists sont faits.
 2. Ventiler les stats existantes par côté, map et opérateur.
 3. Récupérer des replays de ranked sur le PC de l'utilisateur pour vérifier `matchtype`, les profile ids et les différences avec les fichiers de tournoi.
 4. Ensuite le serveur, l'interface web et l'app Windows.

@@ -302,3 +302,16 @@ func TestKOST(t *testing.T) {
 		t.Errorf("untraded death without kill: KOST = %d, want 0", got)
 	}
 }
+
+func TestAssists(t *testing.T) {
+	r := compute(
+		&rec.Round{Winner: 0, Scoreboards: map[string]rec.Scoreboard{"a1": {Assists: 2}, "b1": {Assists: 1}}},
+		&rec.Round{Winner: 0, Scoreboards: map[string]rec.Scoreboard{"a1": {Assists: 1}}},
+		&rec.Round{Winner: 1}, // no scoreboard decoded
+	)
+	for name, want := range map[string]int{"a1": 3, "b1": 1, "a2": 0} {
+		if got := player(t, r, name).Assists; got != want {
+			t.Errorf("%s assists = %d, want %d", name, got, want)
+		}
+	}
+}

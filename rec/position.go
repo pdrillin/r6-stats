@@ -283,3 +283,57 @@ func readPlanter(body []byte, players []playerObjects) (string, int) {
 	}
 	return planter, at
 }
+
+// Scoreboard is what a player's scoreboard counters gained during the
+// recording: last value seen minus first value seen.
+type Scoreboard struct {
+	Kills   int `json:"kills"`
+	Deaths  int `json:"deaths"`
+	Assists int `json:"assists"`
+	Plants  int `json:"plants"`
+	Points  int `json:"points"`
+}
+
+// readScoreboards returns the counters each player gained, by name.
+func readScoreboards(body []byte, players []playerObjects) map[string]Scoreboard {
+	out := map[string]Scoreboard{}
+	for _, p := range players {
+		if p.score == "" {
+			continue
+		}
+		first := map[uint32]int{}
+		last := map[uint32]int{}
+		ref := append([]byte{tagObject}, p.score...)
+		for pos := 0; ; {
+			i := bytes.Index(body[pos:], ref)
+			if i < 0 {
+				break
+			}
+			pos += i + len(ref)
+			readProps(body, pos, func(k uint32, val []byte) {
+				switch k {
+				case keyScoreKills, keyScoreDeaths, keyScoreAssists, keyScorePlants, keyScorePoints:
+				default:
+					return
+				}
+				if len(val) != 4 {
+					return
+				}
+				v := int(binary.LittleEndian.Uint32(val))
+				if _, ok := first[k]; !ok {
+					first[k] = v
+				}
+				last[k] = v
+			})
+		}
+		gain := func(k uint32) int { return last[k] - first[k] }
+		out[p.name] = Scoreboard{
+			Kills:   gain(keyScoreKills),
+			Deaths:  gain(keyScoreDeaths),
+			Assists: gain(keyScoreAssists),
+			Plants:  gain(keyScorePlants),
+			Points:  gain(keyScorePoints),
+		}
+	}
+	return out
+}
