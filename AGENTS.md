@@ -30,6 +30,18 @@ Modèle prévu :
 - **Espace** : un ensemble de matchs, des membres, une visibilité (privé ou public). Une ligue est un espace public à plusieurs équipes ; une équipe est un espace privé qui sait laquelle des deux équipes est « nous » (à reconnaître par ses joueurs plutôt que par son nom). Les stats d'un espace sont `stats.Compute` sur ses matchs, comme le filtre par map aujourd'hui ; l'interface actuelle sert telle quelle dans un espace.
 - **Joueur** : identifié par son profile id Ubisoft d'un espace à l'autre. La page tracker = ses stats sur les matchs publics où il apparaît.
 
+Types de match, à ne jamais mélanger dans une même stat par défaut :
+
+- **Ranked** (et autres parties en ligne : non classée, partie rapide) : coéquipiers souvent inconnus, pas de stratégie d'équipe. Utile pour le profil d'un joueur, pas pour le travail d'équipe.
+- **Pracc** (scrim, entraînement) : partie personnalisée, l'équipe travaille des stratégies et peut en tester. C'est la matière principale de l'espace équipe.
+- **Match officiel** (ligue, tournoi) : partie personnalisée, ce qui compte vraiment. Matière de l'espace ligue, et vue à part dans l'espace équipe.
+
+Détection :
+
+- Ranked ou partie personnalisée : à lire dans l'en-tête (`matchtype`, `gamemodeid`, éventuellement les `gmsetting`). Le corpus, uniquement des parties personnalisées, a `matchtype` = 3 ; la valeur en ranked est inconnue tant qu'aucun replay de ranked n'a été examiné. Un rehost n'existe qu'en partie personnalisée.
+- Pracc ou officiel : même format de fichier, impossible à distinguer automatiquement. C'est une étiquette posée par l'utilisateur à l'import, modifiable par match. Par défaut : officiel dans un espace ligue, pracc dans un espace équipe.
+- Dans l'interface : un filtre de type de match, sur le modèle du filtre par map (`?type=`). Par défaut, l'espace équipe montre pracc et officiels sans le ranked ; le profil d'un joueur sépare ranked et parties personnalisées.
+
 Ordre retenu :
 
 1. **Équipe d'abord.** C'est le format validé (parties privées, rehosts), c'est là que les stats avancées apportent le plus, l'infrastructure est minime, et l'utilisateur et son équipe sont les premiers utilisateurs.
@@ -160,9 +172,9 @@ Entiers en little-endian sauf mention contraire.
 
 ## Prochaines étapes
 
-1. **Replays de l'équipe de l'utilisateur** (scrims, officiels, plus quelques ranked pour plus tard). Vérifier les noms d'équipe dans les parties privées (vrais noms ou « Team 1 »), les profile ids (remplis ou à zéro), `matchtype`, et comment reconnaître « notre » équipe.
+1. **Replays de l'équipe de l'utilisateur** (scrims, officiels, plus quelques ranked pour plus tard). Vérifier les noms d'équipe dans les parties privées (vrais noms ou « Team 1 »), les profile ids (remplis ou à zéro), comment reconnaître « notre » équipe, et quels champs de l'en-tête distinguent le ranked des parties personnalisées (`matchtype`, `gamemodeid`).
 2. **App Windows en local** (Wails), sans serveur : lit le dossier `MatchReplay`, conserve les replays avant que le jeu ne les supprime, embarque l'API (`api/`) et l'interface construite (`web/dist`).
-3. **Vues « équipe »** : notion de « nous » contre l'adversaire, fiche de préparation contre un adversaire, accueil centré sur l'équipe (la page Joueurs actuelle, un tableau de tous les joueurs, ne tiendra pas avec des replays de ranked et deviendra un onglet d'analyse avec un minimum de rounds).
+3. **Vues « équipe »** : type de match (détecté pour ranked ou partie personnalisée, étiquette pracc ou officiel posée par l'utilisateur) et filtre associé, notion de « nous » contre l'adversaire, fiche de préparation contre un adversaire, accueil centré sur l'équipe (la page Joueurs actuelle, un tableau de tous les joueurs, ne tiendra pas avec des replays de ranked et deviendra un onglet d'analyse avec un minimum de rounds).
 4. **Serveur partagé** quand plusieurs membres mettent leurs replays en commun : espaces, comptes, envoi des `.rec`, Postgres, stockage objet.
 5. **Ligue**, puis éventuellement le tracker public.
 
