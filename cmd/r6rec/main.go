@@ -16,12 +16,16 @@ import (
 	"text/tabwriter"
 
 	"github.com/pdrillin/r6-stats/api"
+	"github.com/pdrillin/r6-stats/cache"
 	"github.com/pdrillin/r6-stats/match"
 	"github.com/pdrillin/r6-stats/rec"
 	"github.com/pdrillin/r6-stats/stats"
 )
 
-const usage = `usage:
+const usage = `Decoded rounds are cached in the user's cache folder; set R6STATS_CACHE
+to another folder, or to "off" to decode every file each time.
+
+usage:
   r6rec ls <dir>...             one line per round found under the folders
   r6rec matches <dir>...        rounds grouped into matches, with scoreboards
   r6rec stats [-json] <dir>...  opening duels, trades, clutches and man-advantage
@@ -33,6 +37,7 @@ const usage = `usage:
   r6rec serve [-addr host:port] [-web dir] <dir>...
                                 serve the statistics to the web interface
                                 (-web: built interface, e.g. web/dist)
+  r6rec cache info|clear         where the decoded rounds are cached, and how many
   r6rec header [-raw] <file>    header of one round as JSON (-raw: every property)
   r6rec round <file>            events of one round as JSON
   r6rec dump <file> <out>       write the decompressed body to <out>
@@ -57,6 +62,8 @@ func main() {
 		err = split(os.Args[2:])
 	case "serve":
 		err = serve(os.Args[2:])
+	case "cache":
+		err = cacheCmd(os.Args[2:])
 	case "header":
 		err = header(os.Args[2:])
 	case "round":
@@ -198,19 +205,59 @@ func load(roots []string) ([]*match.Match, error) {
 	if len(paths) == 0 {
 		return nil, fmt.Errorf("no .rec file under %s", strings.Join(roots, ", "))
 	}
-	var files []match.RoundFile
-	for _, p := range paths {
-		f, err := rec.Open(p)
+	c, err := openCache()
+	if err != nil {
+		return nil, err
+	}
+	files, st, err := c.Rounds(paths)
+	if err != nil {
+		return nil, err
+	}
+	if st.Decoded > 0 && c != nil {
+		fmt.Fprintf(os.Stderr, "%d rounds decoded and cached, %d read from the cache\n", st.Decoded, st.Cached)
+	}
+	return match.Assemble(files), nil
+}
+
+// openCache opens the cache of decoded rounds: the user's cache folder, the
+// folder named by R6STATS_CACHE, or none when R6STATS_CACHE is "off".
+func openCache() (*cache.Cache, error) {
+	dir := os.Getenv("R6STATS_CACHE")
+	if dir == "off" {
+		return nil, nil
+	}
+	if dir == "" {
+		d, err := cache.DefaultDir()
 		if err != nil {
 			return nil, err
 		}
-		r, err := f.Round()
-		if err != nil {
-			return nil, fmt.Errorf("%s: %w", p, err)
-		}
-		files = append(files, match.RoundFile{Path: p, Header: f.Header, Round: r})
+		dir = d
 	}
-	return match.Assemble(files), nil
+	return cache.Open(dir)
+}
+
+func cacheCmd(args []string) error {
+	c, err := openCache()
+	if err != nil {
+		return err
+	}
+	if c == nil {
+		return fmt.Errorf("the cache is off (R6STATS_CACHE=off)")
+	}
+	switch args[0] {
+	case "info":
+		info, err := c.Info()
+		if err != nil {
+			return err
+		}
+		fmt.Printf("%s\n%d rounds, %.1f MB (decoder version %d)\n", c.Dir(), info.Entries, float64(info.Bytes)/1e6, rec.Version)
+		return nil
+	case "clear":
+		return c.Clear()
+	}
+	fmt.Fprint(os.Stderr, usage)
+	os.Exit(2)
+	return nil
 }
 
 func matches(roots []string) error {

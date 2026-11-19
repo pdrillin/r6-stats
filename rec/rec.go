@@ -118,6 +118,11 @@ type Chunk struct {
 	Size           int // decompressed size
 }
 
+// Version identifies what this package decodes. Results cached from a
+// different version are decoded again, so bump it whenever a change alters
+// what Header or Round hold for a file.
+const Version = 1
+
 // File is a parsed round file. The body stays compressed until read.
 type File struct {
 	Header Header

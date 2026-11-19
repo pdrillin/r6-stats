@@ -80,7 +80,10 @@ go run ./cmd/r6rec round <fichier.rec>  # événements décodés d'un round
 go run ./cmd/r6rec header -raw <fichier.rec>
 go run ./cmd/r6rec dump <fichier.rec> <sortie.bin>  # corps décompressé, pour la rétro-ingénierie
 go run ./cmd/r6rec serve Replays     # API JSON sur 127.0.0.1:8080 (-addr, -web web/dist)
+go run ./cmd/r6rec cache info        # emplacement et taille du cache (aussi : clear)
 ```
+
+Les rounds décodés sont mis en cache (dossier de cache de l'utilisateur : `~/.cache/r6-stats`, `%LocalAppData%\r6-stats` sous Windows). `R6STATS_CACHE=<dossier>` en choisit un autre, `R6STATS_CACHE=off` le coupe. Corpus : environ 5 s sans cache (décodage en parallèle), 0,2 s avec, 1,7 Mo de cache.
 
 Interface web (Node 24, dossier `web/`) :
 
@@ -110,6 +113,7 @@ Organisation : `Replays/<série>/<n> - <map>/Match-<date>-<id>/Match-...-RNN.rec
 | Package | Rôle |
 |---|---|
 | `rec/` | Format de fichier : en-tête (`rec.go`), identifiants de maps (`maps.go`), événements du corps et vainqueur du round (`round.go`) |
+| `cache/` | Cache des rounds décodés, un fichier JSON par replay, clé = SHA-256 du fichier ; décodage en parallèle (6 au plus : chacun tient un corps décompressé) |
 | `match/` | Regroupe les rounds en matchs, gère les rehosts ; `Roster` complète une équipe manquante |
 | `stats/` | Duels d'ouverture, trades, clutches, conversion des avantages numériques |
 | `api/` | API JSON pour l'interface : `/api/overview` (`?map=` pour une seule map, vues précalculées au démarrage), `/api/matches`, `/api/matches/{id}` ; sert aussi l'interface construite (repli sur `index.html` pour les routes de la SPA) |
@@ -160,6 +164,8 @@ Entiers en little-endian sauf mention contraire.
 - Les noms de pièces peuvent différer légèrement des étiquettes de site (`"1F  Kitchen Cooking"` avec deux espaces sur Kafe) : le parser normalise les espaces.
 - Sur Kafe, les défenseurs du site Fireplace Hall / Mining Room démarrent dans le Train Museum voisin.
 - Un événement prend l'heure de la dernière mise à jour du chrono qui le précède dans le corps (le corps est chronologique).
+
+**Version du décodeur** : `rec.Version`. L'incrémenter à chaque modification qui change ce que `Header` ou `Round` contiennent pour un fichier, sinon le cache resservira d'anciens résultats. `Header.Properties` n'est pas mis en cache.
 
 **Pièges connus**
 - Le vainqueur du round est déduit des règles du jeu (élimination, pose + temps écoulé, pose sans temps écoulé = désamorçage, temps écoulé), pas lu dans le fichier.

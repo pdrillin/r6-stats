@@ -54,6 +54,8 @@ cd web && npm run build && cd ..
 go run ./cmd/r6rec serve -web web/dist Replays   # tout sur http://127.0.0.1:8080
 ```
 
+Chaque replay n'est décodé qu'une fois : le résultat est gardé dans le dossier de cache de l'utilisateur (`r6rec cache info` pour le voir, `r6rec cache clear` pour le vider, `R6STATS_CACHE=off` pour s'en passer).
+
 Sous Windows, les replays sont dans le dossier `MatchReplay` du jeu, avec un sous-dossier par match.
 
 Pour installer l'outil sans cloner le dépôt :
@@ -73,6 +75,7 @@ GOOS=windows GOARCH=amd64 go build -o r6rec.exe ./cmd/r6rec
 | Dossier | Rôle |
 |---|---|
 | `rec/` | Lecture des fichiers `.rec` : en-tête, décompression, événements du round |
+| `cache/` | Cache des rounds décodés |
 | `match/` | Regroupement des rounds en matchs, gestion des rehosts |
 | `stats/` | Calcul des statistiques |
 | `api/` | API JSON servie à l'interface web |
