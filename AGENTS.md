@@ -84,6 +84,7 @@ Entiers en little-endian sauf mention contraire.
 - **Tableau des scores** : un objet par joueur, envoyé juste avant l'objet qui porte son nom dans l'état initial. Compteurs cumulés sur la session d'enregistrement (u32) : `0x1cd2b19d` kills, `0xcd9c5d72` morts, `0x4d737f9e` assists, `0x31a3d4d2` poses de défuseur, `0xecda4f80` score, `0x8310f4f4` jamais mis à jour dans le corpus. Aucun compteur de désamorçages trouvé.
 - **Gains par round** (`Round.Scoreboards`) : dernière valeur vue moins la première, pour chaque compteur. Les morts concordent avec le kill feed pour les 800 joueur-rounds du corpus et les kills par équipe pour tous les rounds. Les kills par joueur diffèrent dans 24 cas : joueur mis à terre par l'un et achevé par l'autre, le feed nomme celui qui achève, le tableau des scores peut créditer le kill à l'autre et l'assist à celui qui achève. Le parser prend les kills du feed et les assists du tableau des scores.
 - **Poseur** : le joueur dont le compteur `0x31a3d4d2` augmente pendant le round (la première valeur vue sert de référence). Les 21 poses du corpus sont attribuées à un attaquant. Quand le round se termine dans le même tick que la pose (Lair, round 2), le chrono ne passe jamais au compte à rebours : la pose est alors datée par ce compteur.
+- **Désamorceur** : aucun compteur dédié, mais le désamorçage rapporte des points. Au dernier tick du round, chaque vainqueur gagne le même bonus (100, ou bien plus en fin de match) et le désamorceur gagne exactement 100 de plus (`defuseBonus`). On compare les gains de score (`0xecda4f80`) des défenseurs entre le début du dernier tick et la fin de l'enregistrement ; sans écart d'exactement 100, personne n'est nommé. Les 7 désamorçages du corpus sont attribués ; 6 désamorceurs sont dans la pièce même de la pose, le 7e sur le seuil (le défuseur peut être posé en bordure de site, par exemple en 2F Mask Room sur Lair).
 - La pièce d'un kill est la dernière pièce non vide du corps avant le kill, en comptant les mises à jour du même tick de chrono (elles arrivent parfois juste après l'entrée du feed). Connue pour les 555 kills du corpus.
 - Les noms de pièces peuvent différer légèrement des étiquettes de site (`"1F  Kitchen Cooking"` avec deux espaces sur Kafe) : le parser normalise les espaces.
 - Sur Kafe, les défenseurs du site Fireplace Hall / Mining Room démarrent dans le Train Museum voisin.
@@ -103,16 +104,15 @@ Entiers en little-endian sauf mention contraire.
 - Trade : le tueur meurt, tué par l'équipe de la victime, dans les `TradeWindowMs` (5000 par défaut). Un kill qui venge plusieurs morts compte pour un seul kill de trade.
 - Clutch : joueur resté seul dans son équipe ; taille = nombre d'ennemis en vie à ce moment ; gagné si l'équipe gagne le round.
 - Situations : chaque état NvM compté une fois par round, avec le nombre de rounds gagnés.
-- KOST : rounds où le joueur a fait un kill (ennemi), posé le défuseur, survécu ou vu sa mort tradée. Les désamorçages ne sont pas décodés et ne comptent donc pas : le KOST des défenseurs est légèrement sous-estimé. `Survived` = rounds vivant à la fin.
+- KOST : rounds où le joueur a fait un kill (ennemi), posé ou désamorcé le défuseur, survécu ou vu sa mort tradée. `Survived` = rounds vivant à la fin.
 - Pièces : kills comptés dans la pièce du tueur, morts dans celle de la victime, séparés par côté (`Report.Rooms`), et par joueur (`KillRooms`, `DeathRooms`).
 - Sites : par équipe, map et site, rounds joués et gagnés en attaque et en défense, et rounds d'attaque avec pose (et gagnés). Les rounds sans site connu ne comptent pas dans cette ventilation.
 - Les joueurs sont identifiés par leur profile id quand il existe, par leur nom sinon. Les rounds sans vainqueur connu sont écartés et comptés dans `SkippedRounds`.
 
 ## Prochaines étapes
 
-1. Le désamorceur reste inconnu (il manque au KOST) : piste, le défenseur présent dans une pièce du site au moment du désamorçage. Site, positions, poseur, KOST et assists sont faits.
-2. Ventiler les stats existantes par côté, map et opérateur.
-3. Récupérer des replays de ranked sur le PC de l'utilisateur pour vérifier `matchtype`, les profile ids et les différences avec les fichiers de tournoi.
-4. Ensuite le serveur, l'interface web et l'app Windows.
+1. Ventiler les stats existantes par côté, map et opérateur.
+2. Récupérer des replays de ranked sur le PC de l'utilisateur pour vérifier `matchtype`, les profile ids et les différences avec les fichiers de tournoi.
+3. Ensuite le serveur, l'interface web et l'app Windows.
 
 Toujours afficher la taille de l'échantillon à côté d'un pourcentage : les clutches et les situations rares reposent sur peu de cas.

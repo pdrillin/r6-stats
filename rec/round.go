@@ -100,6 +100,9 @@ type Round struct {
 	Plant *Clock `json:"plant"`
 	// Planter is the player credited with the plant on the scoreboard.
 	Planter string `json:"planter,omitempty"`
+	// Defuser is the defender who disabled the defuser, when the round was
+	// won that way and the scoreboard tells who.
+	Defuser string `json:"defuser,omitempty"`
 	// Scoreboards holds, by player name, what each player's scoreboard
 	// counters gained during the round. Assists are only known from here.
 	Scoreboards map[string]Scoreboard `json:"scoreboards"`
@@ -199,6 +202,29 @@ func decodeRound(h *Header, body []byte) *Round {
 		k.VictimRoom = tr.roomAt(k.Victim, offs[i], end)
 	}
 	r.Winner, r.WinReason = decideWinner(h, r)
+	if r.WinReason == DefuserDisabled {
+		defenders := map[string]bool{}
+		for _, p := range h.Players {
+			if p.Team == r.Winner {
+				defenders[p.Name] = true
+			}
+		}
+		// Players missing from a one-team header are found in the feed.
+		for _, k := range r.Kills {
+			if k.VictimTeam == r.Winner {
+				defenders[k.Victim] = true
+			}
+			if k.KillerTeam == r.Winner && k.Killer != "" {
+				defenders[k.Killer] = true
+			}
+		}
+		// The bonuses come with the last timer reading of the round.
+		from := endOff
+		if i := sort.Search(len(ticks), func(i int) bool { return ticks[i].off > endOff }); i > 0 {
+			from = ticks[i-1].off
+		}
+		r.Defuser = readDefuser(body, players, defenders, from)
+	}
 	return r
 }
 

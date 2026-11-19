@@ -64,9 +64,12 @@ type Player struct {
 	// many of those rounds the team won.
 	Plants Record `json:"plants"`
 
-	// KOST counts the rounds where the player got a kill, planted the
-	// defuser, survived or was traded. Defuses are not known, so they do
-	// not count. Survived counts the rounds the player was alive at the end.
+	// Defuses counts the rounds won by the player disabling the defuser.
+	Defuses int `json:"defuses"`
+
+	// KOST counts the rounds where the player got a kill, planted or
+	// disabled the defuser, survived or was traded. Survived counts the
+	// rounds the player was alive at the end.
 	KOST     int `json:"kost"`
 	Survived int `json:"survived"`
 
@@ -292,7 +295,15 @@ func (c *collector) round(mapName string, teams [2]string, roster []rec.Player, 
 
 	// kost collects, by player name, the rounds' contributions that count
 	// for KOST other than surviving.
-	kost := map[string]bool{r.Planter: r.Planter != ""}
+	kost := map[string]bool{}
+	for _, name := range []string{r.Planter, r.Defuser} {
+		if name != "" {
+			kost[name] = true
+		}
+	}
+	if pl := byName[r.Defuser]; pl != nil {
+		pl.Defuses++
+	}
 
 	var clutching [2]bool
 	for i, k := range r.Kills {

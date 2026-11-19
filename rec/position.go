@@ -337,3 +337,59 @@ func readScoreboards(body []byte, players []playerObjects) map[string]Scoreboard
 	}
 	return out
 }
+
+// defuseBonus is the score a defender earns for disabling the defuser, on top
+// of the round win bonus every winner gets at the same moment.
+const defuseBonus = 100
+
+// readDefuser returns the defender who disabled the defuser, for a round won
+// that way. The scoreboard has no defuse counter, but the defuse is scored:
+// at the end of the round every winner gains the same bonus and the defuser
+// gains defuseBonus more. from is where the final timer tick starts; points
+// gained from there to the end of the recording are compared.
+func readDefuser(body []byte, players []playerObjects, defenders map[string]bool, from int) string {
+	gains := map[string]int{}
+	for _, p := range players {
+		if p.score == "" || !defenders[p.name] {
+			continue
+		}
+		before, last := -1, -1
+		ref := append([]byte{tagObject}, p.score...)
+		for pos := 0; ; {
+			i := bytes.Index(body[pos:], ref)
+			if i < 0 {
+				break
+			}
+			off := pos + i
+			pos = off + len(ref)
+			readProps(body, pos, func(k uint32, val []byte) {
+				if k != keyScorePoints || len(val) != 4 {
+					return
+				}
+				v := int(binary.LittleEndian.Uint32(val))
+				if off < from {
+					before = v
+				}
+				last = v
+			})
+		}
+		if before >= 0 {
+			gains[p.name] = last - before
+		}
+	}
+	// The defuser stands out by exactly the bonus; anything else is too
+	// ambiguous to name anyone.
+	best, bestGain, second := "", -1, -1
+	for name, g := range gains {
+		switch {
+		case g > bestGain:
+			second, best, bestGain = bestGain, name, g
+		case g > second:
+			second = g
+		}
+	}
+	if best == "" || second < 0 || bestGain-second != defuseBonus {
+		return ""
+	}
+	return best
+}

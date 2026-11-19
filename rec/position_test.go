@@ -178,3 +178,68 @@ func TestCorpusScoreboards(t *testing.T) {
 	}
 	t.Logf("%d player-rounds, %d with the same kills as the feed, %d assists", players, sameKills, assists)
 }
+
+// TestCorpusDefuser checks that every defuse is credited to a defender who
+// is alive and next to the defuser when the round ends: in a site room, in
+// the room the defuser was planted in (it can be planted at the edge of the
+// site), or on the threshold of a site room.
+func TestCorpusDefuser(t *testing.T) {
+	if testing.Short() {
+		t.Skip("decompresses the whole corpus")
+	}
+	defuses, credited := 0, 0
+	for _, p := range corpus(t) {
+		f, err := Open(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		r, err := f.Round()
+		if err != nil {
+			t.Fatal(err)
+		}
+		name := filepath.Base(p)
+		if r.WinReason != DefuserDisabled {
+			if r.Defuser != "" {
+				t.Errorf("%s: defuser %s in a round won by %s", name, r.Defuser, r.WinReason)
+			}
+			continue
+		}
+		defuses++
+		if r.Defuser == "" {
+			t.Errorf("%s: defuse without a defuser", name)
+			continue
+		}
+		credited++
+		for _, k := range r.Kills {
+			if k.Victim == r.Defuser {
+				t.Errorf("%s: defuser %s died", name, r.Defuser)
+			}
+		}
+		pos := r.Positions[r.Defuser]
+		if len(pos) == 0 {
+			t.Errorf("%s: no position for defuser %s", name, r.Defuser)
+			continue
+		}
+		inSite := func(room string) bool {
+			for _, s := range strings.Split(r.Site, " / ") {
+				if s == room {
+					return true
+				}
+			}
+			return false
+		}
+		plantRoom := ""
+		for _, q := range r.Positions[r.Planter] {
+			if q.ElapsedMs <= r.Plant.ElapsedMs {
+				plantRoom = q.Room
+			}
+		}
+		room := pos[len(pos)-1].Room
+		threshold := len(pos) > 1 && inSite(pos[len(pos)-2].Room)
+		if !inSite(room) && room != plantRoom && !threshold {
+			t.Errorf("%s: defuser %s ends in %s, site is %s, plant in %s", name, r.Defuser, room, r.Site, plantRoom)
+		}
+		t.Logf("%s: %s defuses in %s (plant in %s)", name, r.Defuser, room, plantRoom)
+	}
+	t.Logf("%d defuses, %d credited", defuses, credited)
+}

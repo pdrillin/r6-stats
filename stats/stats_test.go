@@ -296,6 +296,14 @@ func TestKOST(t *testing.T) {
 		}
 	}
 
+	// A defuse counts as the objective, even for a player who dies after
+	// it in the same tick and is not traded.
+	r = compute(&rec.Round{Winner: 1, Defuser: "b1", Plant: &rec.Clock{}, Planter: "a1",
+		Kills: []rec.Kill{kill(170, "a2", "b1")}})
+	if p := player(t, r, "b1"); p.KOST != 1 || p.Defuses != 1 {
+		t.Errorf("defuser b1: KOST %d, defuses %d, want 1 and 1", p.KOST, p.Defuses)
+	}
+
 	// A round where a player only dies untraded does not count.
 	r = compute(&rec.Round{Winner: 1, Kills: []rec.Kill{kill(10, "b1", "a1")}})
 	if got := player(t, r, "a1").KOST; got != 0 {

@@ -243,8 +243,12 @@ func matches(roots []string) error {
 			if site == "" {
 				site = "?"
 			}
+			how := string(r.WinReason)
+			if r.Defuser != "" {
+				how += " " + r.Defuser
+			}
 			fmt.Fprintf(w, "  %d\t%s\t%s\t%s\t%s\t%d\t%s\t%s\n",
-				h.RoundNumber+1, atk, site, winner, r.WinReason, len(r.Kills), plant, clock(r.End.ElapsedMs))
+				h.RoundNumber+1, atk, site, winner, how, len(r.Kills), plant, clock(r.End.ElapsedMs))
 		}
 		w.Flush()
 
@@ -284,16 +288,16 @@ func statistics(args []string) error {
 	}
 	fmt.Printf(". Trade window: %d s.\n", stats.DefaultTradeWindowMs/1000)
 	fmt.Println("x/y (z%) reads: y occurrences, x of them in rounds the team won.")
-	fmt.Println("KOST: rounds with a kill, a plant, survival or a traded death (defuses are not decoded).")
+	fmt.Println("KOST: rounds with a kill, a plant or defuse, survival or a traded death.")
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "\nPLAYER\tTEAM\tRNDS\tK\tD\tA\tKOST\tSURVIVED\tOPENING KILLS\tOPENING DEATHS\tTRADE KILLS\tDEATHS TRADED\tPLANTS\tCLUTCHES")
+	fmt.Fprintln(w, "\nPLAYER\tTEAM\tRNDS\tK\tD\tA\tKOST\tSURVIVED\tOPENING KILLS\tOPENING DEATHS\tTRADE KILLS\tDEATHS TRADED\tPLANTS\tDEFUSES\tCLUTCHES")
 	for _, p := range rep.Players {
-		fmt.Fprintf(w, "%s\t%s\t%d\t%d\t%d\t%d\t%s\t%s\t%s\t%s\t%d\t%s\t%s\t%s\n",
+		fmt.Fprintf(w, "%s\t%s\t%d\t%d\t%d\t%d\t%s\t%s\t%s\t%s\t%d\t%s\t%s\t%d\t%s\n",
 			p.Name, p.Team, p.Rounds, p.Kills, p.Deaths, p.Assists,
 			ratio(p.KOST, p.Rounds), ratio(p.Survived, p.Rounds),
 			record(p.OpeningKills), record(p.OpeningDeaths),
-			p.TradeKills, ratio(p.TradedDeaths, p.Deaths), record(p.Plants), clutches(p.Clutches))
+			p.TradeKills, ratio(p.TradedDeaths, p.Deaths), record(p.Plants), p.Defuses, clutches(p.Clutches))
 	}
 	w.Flush()
 
