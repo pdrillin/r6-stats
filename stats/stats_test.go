@@ -268,3 +268,37 @@ func TestRooms(t *testing.T) {
 		t.Errorf("b1 death rooms = %v", b1.DeathRooms)
 	}
 }
+
+func TestKOST(t *testing.T) {
+	r := compute(
+		// a1 kills, a2 dies but is traded by a3, a4 plants then dies
+		// untraded, a5 survives without doing anything. b1 kills a4 then
+		// dies to a team kill, b2 kills a2 then dies, b3 dies without a
+		// kill or a trade, b4 and b5 survive.
+		&rec.Round{Winner: 0, Planter: "a4", Plant: &rec.Clock{}, Kills: []rec.Kill{
+			kill(10, "a1", "b3"),
+			kill(20, "b2", "a2"),
+			kill(22, "a3", "b2"),
+			kill(30, "b1", "a4"), // b1 kills a4, nobody avenges within 5 s
+			kill(60, "b4", "b1"), // team kill
+		}},
+	)
+	want := map[string]int{"a1": 1, "a2": 1, "a3": 1, "a4": 1, "a5": 1, "b1": 1, "b2": 1, "b3": 0, "b4": 1, "b5": 1}
+	for name, k := range want {
+		if got := player(t, r, name).KOST; got != k {
+			t.Errorf("%s KOST = %d, want %d", name, got, k)
+		}
+	}
+	// b1 is in KOST for the kill on a4, not for surviving.
+	for name, sv := range map[string]int{"a1": 1, "a2": 0, "a4": 0, "a5": 1, "b1": 0, "b4": 1} {
+		if got := player(t, r, name).Survived; got != sv {
+			t.Errorf("%s survived = %d, want %d", name, got, sv)
+		}
+	}
+
+	// A round where a player only dies untraded does not count.
+	r = compute(&rec.Round{Winner: 1, Kills: []rec.Kill{kill(10, "b1", "a1")}})
+	if got := player(t, r, "a1").KOST; got != 0 {
+		t.Errorf("untraded death without kill: KOST = %d, want 0", got)
+	}
+}

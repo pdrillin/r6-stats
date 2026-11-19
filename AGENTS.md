@@ -102,13 +102,14 @@ Entiers en little-endian sauf mention contraire.
 - Trade : le tueur meurt, tué par l'équipe de la victime, dans les `TradeWindowMs` (5000 par défaut). Un kill qui venge plusieurs morts compte pour un seul kill de trade.
 - Clutch : joueur resté seul dans son équipe ; taille = nombre d'ennemis en vie à ce moment ; gagné si l'équipe gagne le round.
 - Situations : chaque état NvM compté une fois par round, avec le nombre de rounds gagnés.
+- KOST : rounds où le joueur a fait un kill (ennemi), posé le défuseur, survécu ou vu sa mort tradée. Les désamorçages ne sont pas décodés et ne comptent donc pas : le KOST des défenseurs est légèrement sous-estimé. `Survived` = rounds vivant à la fin.
 - Pièces : kills comptés dans la pièce du tueur, morts dans celle de la victime, séparés par côté (`Report.Rooms`), et par joueur (`KillRooms`, `DeathRooms`).
 - Sites : par équipe, map et site, rounds joués et gagnés en attaque et en défense, et rounds d'attaque avec pose (et gagnés). Les rounds sans site connu ne comptent pas dans cette ventilation.
 - Les joueurs sont identifiés par leur profile id quand il existe, par leur nom sinon. Les rounds sans vainqueur connu sont écartés et comptés dans `SkippedRounds`.
 
 ## Prochaines étapes
 
-1. Calculer le KOST (kill, objectif, survie, trade) et exploiter les assists du tableau des scores. Le désamorceur reste inconnu : piste, le défenseur présent dans une pièce du site au moment du désamorçage. Site, positions et poseur sont faits.
+1. Exploiter les assists du tableau des scores. Le désamorceur reste inconnu (il manque au KOST) : piste, le défenseur présent dans une pièce du site au moment du désamorçage. Site, positions, poseur et KOST sont faits.
 2. Ventiler les stats existantes par côté, map et opérateur.
 3. Récupérer des replays de ranked sur le PC de l'utilisateur pour vérifier `matchtype`, les profile ids et les différences avec les fichiers de tournoi.
 4. Ensuite le serveur, l'interface web et l'app Windows.

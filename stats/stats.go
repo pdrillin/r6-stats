@@ -60,6 +60,12 @@ type Player struct {
 	// many of those rounds the team won.
 	Plants Record `json:"plants"`
 
+	// KOST counts the rounds where the player got a kill, planted the
+	// defuser, survived or was traded. Defuses are not known, so they do
+	// not count. Survived counts the rounds the player was alive at the end.
+	KOST     int `json:"kost"`
+	Survived int `json:"survived"`
+
 	// KillRooms and DeathRooms count kills by the room the player was in,
 	// and deaths by the room the player died in.
 	KillRooms  map[string]int `json:"killRooms"`
@@ -279,6 +285,10 @@ func (c *collector) round(mapName string, teams [2]string, roster []rec.Player, 
 		pl.Plants.add(r.Winner == attacker)
 	}
 
+	// kost collects, by player name, the rounds' contributions that count
+	// for KOST other than surviving.
+	kost := map[string]bool{r.Planter: r.Planter != ""}
+
 	var clutching [2]bool
 	for i, k := range r.Kills {
 		vt := k.VictimTeam
@@ -292,6 +302,9 @@ func (c *collector) round(mapName string, teams [2]string, roster []rec.Player, 
 			victim.Deaths++
 		}
 		team[vt].Deaths++
+		if enemy(k) {
+			kost[k.Killer] = true
+		}
 		if enemy(k) && killer != nil {
 			killer.Kills++
 			if k.Headshot {
@@ -314,6 +327,7 @@ func (c *collector) round(mapName string, teams [2]string, roster []rec.Player, 
 		}
 
 		if avenger, ok := c.tradedBy(r.Kills, i); ok {
+			kost[k.Victim] = true
 			if victim != nil {
 				victim.TradedDeaths++
 			}
@@ -352,6 +366,20 @@ func (c *collector) round(mapName string, teams [2]string, roster []rec.Player, 
 					}
 				}
 			}
+		}
+	}
+
+	for t := range alive {
+		for name := range alive[t] {
+			if pl := byName[name]; pl != nil {
+				pl.Survived++
+				kost[name] = true
+			}
+		}
+	}
+	for name, ok := range kost {
+		if pl := byName[name]; ok && pl != nil {
+			pl.KOST++
 		}
 	}
 }
