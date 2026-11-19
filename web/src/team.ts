@@ -1,30 +1,41 @@
-import { useState } from "react";
-import type { MatchSummary, Team } from "./api";
+import { useEffect, useState } from "react";
+import { put, useApi, type MatchSummary, type Settings, type Team } from "./api";
 
-// The team the reader works with. Until spaces and accounts exist it is a
-// choice kept in this browser only.
-const KEY = "r6stats.team";
+// The team the user plays in, kept by the server with the rest of the user's
+// data. Earlier versions kept it in this browser: such a choice is sent to
+// the server once, then forgotten here.
+const LEGACY_KEY = "r6stats.team";
 
-function read(): string {
+function takeLegacy(): string {
   try {
-    return localStorage.getItem(KEY) ?? "";
+    const v = localStorage.getItem(LEGACY_KEY) ?? "";
+    localStorage.removeItem(LEGACY_KEY);
+    return v;
   } catch {
     return "";
   }
 }
 
-export function useMyTeam(): [string, (name: string) => void] {
-  const [team, setTeam] = useState(read);
+/**
+ * The user's team, undefined until the server answered, and its setter. A
+ * failed change is reported through the returned error.
+ */
+export function useMyTeam(): [string | undefined, (name: string) => void, string | undefined] {
+  const settings = useApi<Settings>("settings");
+  const [error, setError] = useState<string>();
   const set = (name: string) => {
-    setTeam(name);
-    try {
-      if (name) localStorage.setItem(KEY, name);
-      else localStorage.removeItem(KEY);
-    } catch {
-      // Storage unavailable: the choice lasts until the page is closed.
-    }
+    setError(undefined);
+    put("settings", { myTeam: name }).catch((e: unknown) => setError(String(e)));
   };
-  return [team, set];
+  const team = settings.data?.myTeam;
+  useEffect(() => {
+    if (team === "") {
+      const legacy = takeLegacy();
+      if (legacy) set(legacy);
+    }
+    // Only the team matters: set always does the same thing.
+  }, [team]);
+  return [team, set, error ?? settings.error];
 }
 
 /** A match from one team's point of view. */

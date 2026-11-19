@@ -3,17 +3,20 @@ package api
 
 import (
 	"encoding/json"
+	"io"
 	"net/http"
 	"os"
 	"path"
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/pdrillin/r6-stats/match"
 	"github.com/pdrillin/r6-stats/rec"
 	"github.com/pdrillin/r6-stats/stats"
+	"github.com/pdrillin/r6-stats/store"
 )
 
 // MatchSummary is one line of the match list.
@@ -28,6 +31,8 @@ type MatchSummary struct {
 	RoundCount int    `json:"roundCount"`
 	// Superseded counts recordings of rounds replayed after a rehost.
 	Superseded int `json:"superseded"`
+	// Kind is what the match was played for, as the user labelled it.
+	Kind store.Kind `json:"kind"`
 }
 
 // MatchDetail is a match with every round and its own statistics.
@@ -69,10 +74,12 @@ type RoundPlayer struct {
 }
 
 // Overview is the statistics over every match, or over the matches of one
-// map.
+// map or one kind.
 type Overview struct {
 	// Map is the map the statistics are restricted to, empty for all.
 	Map string `json:"map"`
+	// Kind is the kind of match they are restricted to, empty for all.
+	Kind store.Kind `json:"kind"`
 	// Maps lists every map played, whatever the filter, sorted.
 	Maps    []string      `json:"maps"`
 	Matches int           `json:"matches"`
@@ -84,54 +91,51 @@ type Overview struct {
 	OperatorSides map[string]rec.Side `json:"operatorSides"`
 }
 
-// Server answers the API requests. Everything is computed once, when the
-// server is built.
-type Server struct {
-	overviews map[string]*Overview // by map name, "" for all maps
-	list      []MatchSummary
-	details   map[string]*MatchDetail
-	mux       *http.ServeMux
+// Settings are the user's choices.
+type Settings struct {
+	MyTeam string `json:"myTeam"`
 }
 
-// New builds the server for the given matches. When web is not empty it is a
-// folder holding the built interface, served for every path outside /api/.
-func New(matches []*match.Match, web string) *Server {
+// Options configure a Server.
+type Options struct {
+	// Web is a folder holding the built interface, served for every path
+	// outside /api/. Empty serves the API only.
+	Web string
+	// Store holds what the user tells about the matches. Nil keeps it in
+	// memory.
+	Store *store.Store
+}
+
+// Server answers the API requests. Match details are computed when the
+// server is built; overviews when first asked for, and again once the user
+// relabels a match.
+type Server struct {
+	matches []*match.Match // without duplicates, in order
+	details map[string]*MatchDetail
+	ids     []string // id of each match
+	maps    []string
+	sides   map[string]rec.Side
+	store   *store.Store
+	mux     *http.ServeMux
+
+	mu        sync.Mutex
+	overviews map[[2]string]*Overview // by map and kind
+}
+
+// New builds the server for the given matches.
+func New(matches []*match.Match, opt Options) *Server {
 	s := &Server{
-		overviews: map[string]*Overview{},
-		list:      []MatchSummary{},
 		details:   map[string]*MatchDetail{},
+		maps:      []string{},
+		sides:     map[string]rec.Side{},
+		store:     opt.Store,
 		mux:       http.NewServeMux(),
+		overviews: map[[2]string]*Overview{},
 	}
-	byMap := map[string][]*match.Match{"": matches}
-	maps := []string{}
-	for _, m := range matches {
-		name := mapName(m)
-		if byMap[name] == nil {
-			maps = append(maps, name)
-		}
-		byMap[name] = append(byMap[name], m)
+	if s.store == nil {
+		s.store = store.Memory()
 	}
-	sort.Strings(maps)
-	sides := map[string]rec.Side{}
-	for _, m := range matches {
-		for _, rf := range m.Rounds {
-			for _, p := range rf.Header.Players {
-				if p.Operator != "" && (p.Side == rec.Attack || p.Side == rec.Defense) {
-					sides[p.Operator] = p.Side
-				}
-			}
-		}
-	}
-	for name, ms := range byMap {
-		s.overviews[name] = &Overview{
-			Map:           name,
-			Maps:          maps,
-			Matches:       len(ms),
-			Stats:         stats.Compute(stats.Options{}, ms...),
-			TradeWindowMs: stats.DefaultTradeWindowMs,
-			OperatorSides: sides,
-		}
-	}
+	seenMap := map[string]bool{}
 	for _, m := range matches {
 		d := detail(m)
 		// Two matches can share the id of their first recording only if
@@ -140,19 +144,42 @@ func New(matches []*match.Match, web string) *Server {
 			continue
 		}
 		s.details[d.ID] = d
-		s.list = append(s.list, d.MatchSummary)
+		s.matches = append(s.matches, m)
+		s.ids = append(s.ids, d.ID)
+		if !seenMap[d.Map] {
+			seenMap[d.Map] = true
+			s.maps = append(s.maps, d.Map)
+		}
+		for _, rf := range m.Rounds {
+			for _, p := range rf.Header.Players {
+				if p.Operator != "" && (p.Side == rec.Attack || p.Side == rec.Defense) {
+					s.sides[p.Operator] = p.Side
+				}
+			}
+		}
 	}
+	sort.Strings(s.maps)
 
 	s.mux.HandleFunc("GET /api/overview", func(w http.ResponseWriter, r *http.Request) {
-		o := s.overviews[r.URL.Query().Get("map")]
-		if o == nil {
+		q := r.URL.Query()
+		mapName, kind := q.Get("map"), store.Kind(q.Get("kind"))
+		if mapName != "" && !seenMap[mapName] {
 			http.Error(w, "unknown map", http.StatusNotFound)
 			return
 		}
-		writeJSON(w, o)
+		if kind != "" && !kind.Valid() {
+			http.Error(w, "unknown match kind", http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, s.overview(mapName, kind))
 	})
 	s.mux.HandleFunc("GET /api/matches", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, s.list)
+		list := make([]MatchSummary, len(s.ids))
+		for i, id := range s.ids {
+			list[i] = s.details[id].MatchSummary
+			list[i].Kind = s.store.Kind(id)
+		}
+		writeJSON(w, list)
 	})
 	s.mux.HandleFunc("GET /api/matches/{id}", func(w http.ResponseWriter, r *http.Request) {
 		d := s.details[r.PathValue("id")]
@@ -160,15 +187,102 @@ func New(matches []*match.Match, web string) *Server {
 			http.Error(w, "match not found", http.StatusNotFound)
 			return
 		}
-		writeJSON(w, d)
+		out := *d
+		out.Kind = s.store.Kind(d.ID)
+		writeJSON(w, out)
+	})
+	s.mux.HandleFunc("PUT /api/matches/{id}/kind", func(w http.ResponseWriter, r *http.Request) {
+		id := r.PathValue("id")
+		if s.details[id] == nil {
+			http.Error(w, "match not found", http.StatusNotFound)
+			return
+		}
+		var body struct {
+			Kind store.Kind `json:"kind"`
+		}
+		if !readJSON(w, r, &body) {
+			return
+		}
+		if !body.Kind.Valid() {
+			http.Error(w, "unknown match kind", http.StatusBadRequest)
+			return
+		}
+		if err := s.store.SetKind(id, body.Kind); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		// Statistics filtered by kind are now out of date.
+		s.mu.Lock()
+		clear(s.overviews)
+		s.mu.Unlock()
+		w.WriteHeader(http.StatusNoContent)
+	})
+	s.mux.HandleFunc("GET /api/settings", func(w http.ResponseWriter, r *http.Request) {
+		writeJSON(w, Settings{MyTeam: s.store.MyTeam()})
+	})
+	s.mux.HandleFunc("PUT /api/settings", func(w http.ResponseWriter, r *http.Request) {
+		var body Settings
+		if !readJSON(w, r, &body) {
+			return
+		}
+		if err := s.store.SetMyTeam(body.MyTeam); err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
 	})
 	s.mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 	})
-	if web != "" {
-		s.mux.Handle("/", spa(web))
+	if opt.Web != "" {
+		s.mux.Handle("/", spa(opt.Web))
 	}
 	return s
+}
+
+// overview returns the statistics over the matches of a map and a kind,
+// empty meaning all.
+func (s *Server) overview(mapName string, kind store.Kind) *Overview {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	key := [2]string{mapName, string(kind)}
+	if o := s.overviews[key]; o != nil {
+		return o
+	}
+	var ms []*match.Match
+	for i, m := range s.matches {
+		if (mapName == "" || mapName == mapNameOf(m)) && (kind == "" || kind == s.store.Kind(s.ids[i])) {
+			ms = append(ms, m)
+		}
+	}
+	o := &Overview{
+		Map:           mapName,
+		Kind:          kind,
+		Maps:          s.maps,
+		Matches:       len(ms),
+		Stats:         stats.Compute(stats.Options{}, ms...),
+		TradeWindowMs: stats.DefaultTradeWindowMs,
+		OperatorSides: s.sides,
+	}
+	s.overviews[key] = o
+	return o
+}
+
+// readJSON decodes a request body. Only JSON is accepted: browsers send JSON
+// across origins only after a preflight this server never approves, so
+// another website cannot write here through the visitor's browser.
+func readJSON(w http.ResponseWriter, r *http.Request, v any) bool {
+	if ct := r.Header.Get("Content-Type"); ct != "application/json" && !strings.HasPrefix(ct, "application/json;") {
+		http.Error(w, "send application/json", http.StatusUnsupportedMediaType)
+		return false
+	}
+	dec := json.NewDecoder(io.LimitReader(r.Body, 1<<16))
+	dec.DisallowUnknownFields()
+	if err := dec.Decode(v); err != nil {
+		http.Error(w, "bad request: "+err.Error(), http.StatusBadRequest)
+		return false
+	}
+	return true
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -196,8 +310,8 @@ func spa(dir string) http.Handler {
 	})
 }
 
-// mapName is the map's name, or its id when the map is unknown.
-func mapName(m *match.Match) string {
+// mapNameOf is the map's name, or its id when the map is unknown.
+func mapNameOf(m *match.Match) string {
 	if m.Map == "" {
 		return "#" + m.MapID
 	}
@@ -206,7 +320,7 @@ func mapName(m *match.Match) string {
 
 func detail(m *match.Match) *MatchDetail {
 	first := m.Rounds[0].Header
-	name := mapName(m)
+	name := mapNameOf(m)
 	d := &MatchDetail{
 		MatchSummary: MatchSummary{
 			ID:         first.MatchID,

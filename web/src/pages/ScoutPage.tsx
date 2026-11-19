@@ -2,7 +2,7 @@ import { useParams } from "react-router-dom";
 import { useApi, type MatchSummary, type Overview, type Player, type Team } from "../api";
 import { TimingChart } from "../components/charts";
 import { Loading } from "../components/Loading";
-import { FLink, MapFilter, useMapFilter, useOverview } from "../components/MapFilter";
+import { FLink, MapFilter, scope, useMapFilter, useMatchFilter, useOverview } from "../components/MapFilter";
 import { clutchTotal, playerPath, teamPath } from "../components/PlayerTable";
 import { RateBars } from "../components/RateBars";
 import { Table } from "../components/Table";
@@ -16,6 +16,7 @@ export function ScoutPage() {
   const overview = useOverview();
   const matches = useApi<MatchSummary[]>("matches");
   const [map] = useMapFilter();
+  const keep = useMatchFilter();
   return (
     <Loading state={overview}>
       {(o) => (
@@ -33,9 +34,9 @@ export function ScoutPage() {
                 <MapFilter maps={o.maps} />
                 {!map && <p className="muted">Choisir une map pour préparer un match précis : sites, pièces et rythme y deviennent bien plus parlants.</p>}
                 {t ? (
-                  <Scout o={o} t={t} matches={all.filter((m) => !map || m.map === map)} />
+                  <Scout o={o} t={t} matches={all.filter(keep)} />
                 ) : (
-                  <p className="muted">{o.map ? `${name} n'a pas joué sur ${o.map}.` : "Équipe introuvable."}</p>
+                  <p className="muted">Aucun match de {name}{scope(o)}.</p>
                 )}
               </>
             );

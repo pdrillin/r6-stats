@@ -1,4 +1,5 @@
 import { NavLink, Route, Routes, useLocation } from "react-router-dom";
+import { filterSearch } from "./components/MapFilter";
 import { ComparePage } from "./pages/ComparePage";
 import { HomePage } from "./pages/HomePage";
 import { MatchPage } from "./pages/MatchPage";
@@ -12,8 +13,8 @@ import { TeamsPage } from "./pages/TeamsPage";
 
 export function App() {
   // The map filter follows the reader from page to page.
-  const map = new URLSearchParams(useLocation().search).get("map");
-  const keep = (path: string) => (map ? `${path}?map=${encodeURIComponent(map)}` : path);
+  const filters = filterSearch(useLocation().search);
+  const keep = (path: string) => path + filters;
   return (
     <>
       <header className="topbar">

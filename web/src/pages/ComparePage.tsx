@@ -3,7 +3,7 @@ import { useSearchParams } from "react-router-dom";
 import type { Player } from "../api";
 import { LegendItem, TimingChart } from "../components/charts";
 import { Loading } from "../components/Loading";
-import { FLink, MapFilter, useOverview } from "../components/MapFilter";
+import { FLink, MapFilter, scope, useOverview } from "../components/MapFilter";
 import { clutchTotal, playerPath, teamPath } from "../components/PlayerTable";
 import { SMALL_SAMPLE, percent, sideLabel } from "../format";
 
@@ -37,7 +37,7 @@ export function ComparePage() {
             </MapFilter>
             {!a || !b ? (
               <p className="muted">
-                {o.map ? `Un des deux joueurs n'a pas joué sur ${o.map}.` : "Choisir deux joueurs."}
+                {o.map || o.kind ? `Un des deux joueurs n'a aucun match${scope(o)}.` : "Choisir deux joueurs."}
               </p>
             ) : a.id === b.id ? (
               <p className="muted">Choisir deux joueurs différents.</p>

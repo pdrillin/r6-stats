@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 import { useApi, type MatchSummary, type Overview, type Player, type Team } from "../api";
 import { Loading } from "../components/Loading";
-import { FLink, MapFilter, useMapFilter, useOverview } from "../components/MapFilter";
+import { FLink, MapFilter, scope, useMatchFilter, useOverview } from "../components/MapFilter";
 import { clutchTotal, playerPath } from "../components/PlayerTable";
 import { RateBars } from "../components/RateBars";
 import { Table } from "../components/Table";
@@ -14,13 +14,15 @@ const MIN_SITE_ROUNDS = 3;
 export function HomePage() {
   const overview = useOverview();
   const matches = useApi<MatchSummary[]>("matches");
-  const [mine, setMine] = useMyTeam();
-  const [map] = useMapFilter();
+  const [mine, setMine, teamError] = useMyTeam();
+  const keep = useMatchFilter();
   return (
     <Loading state={overview}>
       {(o) => (
         <Loading state={matches}>
           {(all) => {
+            if (teamError) return <p className="error">Impossible d'enregistrer l'équipe : {teamError}</p>;
+            if (mine === undefined) return <p className="muted">Chargement…</p>;
             const t = o.stats.teams.find((x) => x.name === mine);
             if (!mine) return <Picker o={o} onPick={setMine} />;
             return (
@@ -33,9 +35,9 @@ export function HomePage() {
                 </h1>
                 <MapFilter maps={o.maps} />
                 {t ? (
-                  <Dashboard o={o} t={t} matches={all.filter((m) => !map || m.map === map)} />
+                  <Dashboard o={o} t={t} matches={all.filter(keep)} />
                 ) : (
-                  <p className="muted">{o.map ? `${mine} n'a pas joué sur ${o.map}.` : `Aucun match de ${mine}.`}</p>
+                  <p className="muted">Aucun match de {mine}{scope(o)}.</p>
                 )}
               </>
             );
@@ -51,8 +53,8 @@ function Picker({ o, onPick }: { o: Overview; onPick: (team: string) => void }) 
     <>
       <h1>Mon équipe</h1>
       <p className="muted">
-        Choisis ton équipe : cette page devient son tableau de bord. Le choix est gardé dans ce navigateur ; il passera
-        par ton compte quand les espaces d'équipe existeront.
+        Choisis ton équipe : cette page devient son tableau de bord. Le choix est enregistré avec tes autres données
+        (types des matchs) sur cet ordinateur.
       </p>
       <div className="team-picker">
         {o.stats.teams.map((t) => (

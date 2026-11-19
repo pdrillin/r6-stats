@@ -4,7 +4,7 @@ import type { Player } from "../api";
 import { LineTable } from "../components/Breakdown";
 import { TimingChart } from "../components/charts";
 import { Loading } from "../components/Loading";
-import { FLink, MapFilter, useOverview } from "../components/MapFilter";
+import { FLink, MapFilter, filterSearch, scope, useOverview } from "../components/MapFilter";
 import { teamPath } from "../components/PlayerTable";
 import { Table } from "../components/Table";
 import { Ratio, RecCount, diff, sideLabel } from "../format";
@@ -24,7 +24,7 @@ export function PlayerPage() {
               <>
                 <MapFilter maps={o.maps} />
                 <p className="muted">
-                  {o.map ? `Ce joueur n'a pas joué sur ${o.map}.` : "Joueur introuvable."}
+                  {`Aucun match de ce joueur${scope(o)}.`}
                 </p>
               </>
             )}
@@ -43,10 +43,8 @@ const splits = {
 
 /** The comparison page with this player as A, keeping the map filter. */
 function compareLink(p: Player, search: string): string {
-  const q = new URLSearchParams();
+  const q = new URLSearchParams(filterSearch(search));
   q.set("a", p.id);
-  const map = new URLSearchParams(search).get("map");
-  if (map) q.set("map", map);
   return "/compare?" + q.toString();
 }
 

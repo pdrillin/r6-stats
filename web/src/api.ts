@@ -111,6 +111,8 @@ export interface Report {
 export interface Overview {
   /** The map the statistics are restricted to, "" for all. */
   map: string;
+  /** The kind of match they are restricted to, "" for all. */
+  kind: MatchKind | "";
   /** Every map played, whatever the filter. */
   maps: string[];
   matches: number;
@@ -120,8 +122,18 @@ export interface Overview {
   operatorSides: Record<string, "attack" | "defense">;
 }
 
+/** What a match was played for, as the user labelled it. */
+export type MatchKind = "pracc" | "official";
+
+export const kindLabels: Record<MatchKind, string> = { pracc: "Pracc", official: "Officiel" };
+
+export interface Settings {
+  myTeam: string;
+}
+
 export interface MatchSummary {
   id: string;
+  kind: MatchKind;
   map: string;
   teams: [string, string];
   score: [number, number];
@@ -190,8 +202,18 @@ export interface MatchDetail extends MatchSummary {
 
 type State<T> = { data?: T; error?: string; loading?: boolean };
 
-// The data does not change while the server runs, so answers are kept.
+// Answers are kept until a change the user makes (a match labelled, a team
+// chosen) makes them stale.
 const cache = new Map<string, unknown>();
+let generation = 0;
+const listeners = new Set<() => void>();
+
+/** Drops every kept answer, so mounted pages fetch again. */
+export function invalidate() {
+  cache.clear();
+  generation++;
+  for (const l of listeners) l();
+}
 
 /**
  * Fetches a JSON endpoint of the API. While a new path loads, the previous
@@ -201,6 +223,14 @@ export function useApi<T>(path: string): State<T> {
   const [state, setState] = useState<State<T>>(() =>
     cache.has(path) ? { data: cache.get(path) as T } : { loading: true },
   );
+  const [gen, setGen] = useState(generation);
+  useEffect(() => {
+    const l = () => setGen(generation);
+    listeners.add(l);
+    return () => {
+      listeners.delete(l);
+    };
+  }, []);
   useEffect(() => {
     if (cache.has(path)) {
       setState({ data: cache.get(path) as T });
@@ -223,6 +253,17 @@ export function useApi<T>(path: string): State<T> {
     return () => {
       live = false;
     };
-  }, [path]);
+  }, [path, gen]);
   return state;
+}
+
+/** Sends a change to the API, then refreshes every page. */
+export async function put(path: string, body: unknown): Promise<void> {
+  const res = await fetch("/api/" + path, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) throw new Error(`${res.status} ${(await res.text()).trim()}`);
+  invalidate();
 }

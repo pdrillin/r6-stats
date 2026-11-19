@@ -886,3 +886,26 @@ h3 {
     grid-row: 2;
   }
 }
+
+.segmented {
+  margin: 0;
+}
+.tabs button:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+.kind-badge {
+  display: inline-block;
+  margin-left: 0.4rem;
+  padding: 0 0.4rem;
+  font-size: 0.75rem;
+  font-weight: 500;
+  color: var(--muted);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  vertical-align: 0.1em;
+}
+.kind-badge.official {
+  color: var(--text);
+  border-color: var(--accent);
+}

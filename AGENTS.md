@@ -50,7 +50,7 @@ Types de match, à ne jamais mélanger dans une même stat par défaut :
 Détection :
 
 - Ranked ou partie personnalisée : à lire dans l'en-tête (`matchtype`, `gamemodeid`, éventuellement les `gmsetting`). Le corpus, uniquement des parties personnalisées, a `matchtype` = 3 ; la valeur en ranked est inconnue tant qu'aucun replay de ranked n'a été examiné. Un rehost n'existe qu'en partie personnalisée.
-- Pracc ou officiel : même format de fichier, impossible à distinguer automatiquement. C'est une étiquette posée par l'utilisateur à l'import, modifiable par match. Par défaut : officiel dans un espace ligue, pracc dans un espace équipe.
+- Pracc ou officiel : même format de fichier, impossible à distinguer automatiquement. C'est une étiquette posée par l'utilisateur, modifiable par match (fait : `store.Kind`, sélecteur sur la page d'un match). Un match non étiqueté est un pracc (`store.DefaultKind`) ; dans un futur espace ligue, ce sera officiel.
 - Dans l'interface : un filtre de type de match, sur le modèle du filtre par map (`?type=`). Par défaut, l'espace équipe montre pracc et officiels sans le ranked ; le profil d'un joueur sépare ranked et parties personnalisées.
 
 Ordre retenu :
@@ -79,7 +79,7 @@ go run ./cmd/r6rec split side Replays  # stats par côté (aussi : map, operator
 go run ./cmd/r6rec round <fichier.rec>  # événements décodés d'un round
 go run ./cmd/r6rec header -raw <fichier.rec>
 go run ./cmd/r6rec dump <fichier.rec> <sortie.bin>  # corps décompressé, pour la rétro-ingénierie
-go run ./cmd/r6rec serve Replays     # API JSON sur 127.0.0.1:8080 (-addr, -web web/dist)
+go run ./cmd/r6rec serve Replays     # API JSON sur 127.0.0.1:8080 (-addr, -web web/dist, -data fichier)
 go run ./cmd/r6rec cache info        # emplacement et taille du cache (aussi : clear)
 ```
 
@@ -114,9 +114,10 @@ Organisation : `Replays/<série>/<n> - <map>/Match-<date>-<id>/Match-...-RNN.rec
 |---|---|
 | `rec/` | Format de fichier : en-tête (`rec.go`), identifiants de maps (`maps.go`), événements du corps et vainqueur du round (`round.go`) |
 | `cache/` | Cache des rounds décodés, un fichier JSON par replay, clé = SHA-256 du fichier ; décodage en parallèle (6 au plus : chacun tient un corps décompressé) |
+| `store/` | Données saisies par l'utilisateur (type de chaque match, « mon équipe ») : un fichier JSON réécrit en entier, de façon atomique, à chaque changement. `%AppData%\r6-stats\data.json` sous Windows, `~/.config/r6-stats/data.json` sous Linux. Distinct du cache, qu'on peut vider sans rien perdre |
 | `match/` | Regroupe les rounds en matchs, gère les rehosts ; `Roster` complète une équipe manquante |
 | `stats/` | Duels d'ouverture, trades, clutches, conversion des avantages numériques |
-| `api/` | API JSON pour l'interface : `/api/overview` (`?map=` pour une seule map, vues précalculées au démarrage), `/api/matches`, `/api/matches/{id}` ; sert aussi l'interface construite (repli sur `index.html` pour les routes de la SPA) |
+| `api/` | API JSON pour l'interface. Lecture : `/api/overview` (`?map=`, `?kind=` ; calculée à la demande, gardée en mémoire, oubliée quand un type de match change), `/api/matches`, `/api/matches/{id}`, `/api/settings`. Écriture : `PUT /api/matches/{id}/kind`, `PUT /api/settings`, en JSON uniquement (un autre site ne peut pas envoyer de JSON au serveur local via le navigateur sans préflight, jamais accepté) ; sert aussi l'interface construite (repli sur `index.html` pour les routes de la SPA) |
 | `cmd/r6rec/` | Outil en ligne de commande |
 | `web/` | Interface React + TypeScript + Vite. `src/api.ts` reprend à la main les types JSON de Go : un champ ajouté côté Go doit y être ajouté aussi |
 
@@ -128,8 +129,8 @@ Interface web :
 - Graphiques (`src/components/charts.tsx`, SVG fait main, pas de bibliothèque) : chronologie des kills d'un match, kills et morts par moment du round (joueur, équipe), morts par pièce. Chacun a un tooltip au survol et au clavier, et ses valeurs restent lisibles sans survol (tableau à côté ou « Voir en tableau »).
 - Couleurs : variables de `style.css` (`--t0`/`--t1` équipes, `--attack`/`--defense`, `--kills`/`--deaths`), validées pour le daltonisme et le contraste en clair et en sombre. Le texte n'est jamais écrit dans une couleur de série : une pastille (`tk0`, `tk1`) porte l'identité de l'équipe.
 - Un pourcentage s'affiche toujours avec son échantillon (`Ratio` : « 35 % 8/23 »), grisé sous 10 cas (`SMALL_SAMPLE`). Pour les ouvertures, la fréquence (« 1er kill ») et la conversion (« Gagnés après ») sont dans deux colonnes séparées.
-- Filtre par map : dans l'URL (`?map=Bank`), lu par `useMapFilter`. Il s'applique à toutes les pages de stats, suit la navigation (`FLink`, liens du menu) et se partage avec le lien. La page Pièces n'a pas de vue « toutes les maps » : ses onglets règlent le filtre. Les réponses de l'API sont mises en cache côté client ; pendant un rechargement, l'ancien rendu reste affiché, grisé.
-- « Mon équipe » est gardée dans le `localStorage` du navigateur (`src/team.ts`) en attendant les espaces et les comptes. Le côté de chaque opérateur vient de `Overview.operatorSides` (un opérateur ne joue qu'un côté). En défense, c'est l'équipe qui choisit le site : la part de chaque site en défense mesure ses préférences.
+- Filtres map et type de match : dans l'URL (`?map=Bank&kind=official`), lus par `useMapFilter` et `useKindFilter`. Il s'applique à toutes les pages de stats, suit la navigation (`FLink`, liens du menu) et se partage avec le lien. La page Pièces n'a pas de vue « toutes les maps » : ses onglets règlent le filtre. Les réponses de l'API sont mises en cache côté client ; pendant un rechargement, l'ancien rendu reste affiché, grisé.
+- « Mon équipe » est enregistrée par le serveur (`/api/settings`). Un choix gardé dans le `localStorage` par une version précédente est envoyé une fois au serveur puis effacé (`src/team.ts`). Après une écriture, `put` vide le cache client et les pages chargent à nouveau. Le côté de chaque opérateur vient de `Overview.operatorSides` (un opérateur ne joue qu'un côté). En défense, c'est l'équipe qui choisit le site : la part de chaque site en défense mesure ses préférences.
 - Identifiant d'un match : `id` d'en-tête du premier enregistrement. Identifiant d'un joueur : `Player.ID` (profile id, ou `name:` + pseudo).
 
 ## Format de fichier (rétro-ingénierie, Y11S2)
@@ -191,7 +192,7 @@ Entiers en little-endian sauf mention contraire.
 ## Prochaines étapes
 
 1. **Replays de l'équipe de l'utilisateur** (scrims, officiels, plus quelques ranked pour plus tard). Vérifier les noms d'équipe dans les parties privées (vrais noms ou « Team 1 »), les profile ids (remplis ou à zéro), comment reconnaître « notre » équipe, et quels champs de l'en-tête distinguent le ranked des parties personnalisées (`matchtype`, `gamemodeid`).
-2. **App Windows en local** (Wails), sans serveur : lit le dossier `MatchReplay`, conserve les replays avant que le jeu ne les supprime, embarque l'API (`api/`) et l'interface construite (`web/dist`).
+2. **App Windows en local** (Wails), sans serveur (cache des rounds et stockage local faits) : lit le dossier `MatchReplay`, conserve les replays avant que le jeu ne les supprime, embarque l'API (`api/`) et l'interface construite (`web/dist`).
 3. **Vues « équipe »** (premier prototype fait : accueil d'équipe et fiche adversaire, sur le corpus) : à compléter avec le type de match (détecté pour ranked ou partie personnalisée, étiquette pracc ou officiel posée par l'utilisateur) et filtre associé, notion de « nous » contre l'adversaire, fiche de préparation contre un adversaire, accueil centré sur l'équipe (la page Joueurs actuelle, un tableau de tous les joueurs, ne tiendra pas avec des replays de ranked et deviendra un onglet d'analyse avec un minimum de rounds).
 4. **Serveur partagé** quand plusieurs membres mettent leurs replays en commun : espaces privés, comptes Discord, rôles et invitations, envoi des `.rec`, Postgres, stockage objet.
 5. **Ligue**, puis éventuellement le tracker public.

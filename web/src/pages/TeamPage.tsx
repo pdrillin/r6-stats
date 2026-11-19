@@ -3,7 +3,7 @@ import type { Overview, Team } from "../api";
 import { TeamLineTable } from "../components/Breakdown";
 import { TimingChart } from "../components/charts";
 import { Loading } from "../components/Loading";
-import { FLink, MapFilter, useOverview } from "../components/MapFilter";
+import { FLink, MapFilter, scope, useOverview } from "../components/MapFilter";
 import { scoutPath } from "../team";
 import { PlayerTable } from "../components/PlayerTable";
 import { Table } from "../components/Table";
@@ -22,7 +22,7 @@ export function TeamPage() {
         ) : (
           <>
             <MapFilter maps={o.maps} />
-            <p className="muted">{o.map ? `Cette équipe n'a pas joué sur ${o.map}.` : "Équipe introuvable."}</p>
+            <p className="muted">Aucun match de cette équipe{scope(o)}.</p>
           </>
         );
       }}

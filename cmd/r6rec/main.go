@@ -20,6 +20,7 @@ import (
 	"github.com/pdrillin/r6-stats/match"
 	"github.com/pdrillin/r6-stats/rec"
 	"github.com/pdrillin/r6-stats/stats"
+	"github.com/pdrillin/r6-stats/store"
 )
 
 const usage = `Decoded rounds are cached in the user's cache folder; set R6STATS_CACHE
@@ -34,9 +35,10 @@ usage:
                                 (default 15, 0 for all)
   r6rec split side|map|operator <dir>...
                                 player and team stats split by side, map or operator
-  r6rec serve [-addr host:port] [-web dir] <dir>...
+  r6rec serve [-addr host:port] [-web dir] [-data file] <dir>...
                                 serve the statistics to the web interface
-                                (-web: built interface, e.g. web/dist)
+                                (-web: built interface, e.g. web/dist;
+                                -data: match kinds and own team)
   r6rec cache info|clear         where the decoded rounds are cached, and how many
   r6rec header [-raw] <file>    header of one round as JSON (-raw: every property)
   r6rec round <file>            events of one round as JSON
@@ -577,6 +579,7 @@ func serve(args []string) error {
 	fl := flag.NewFlagSet("serve", flag.ExitOnError)
 	addr := fl.String("addr", "127.0.0.1:8080", "address to listen on")
 	web := fl.String("web", "", "folder of the built web interface")
+	data := fl.String("data", "", "file of the user's data: match kinds, own team (default: in the user's config folder)")
 	fl.Parse(args)
 	if fl.NArg() == 0 {
 		fmt.Fprint(os.Stderr, usage)
@@ -586,6 +589,16 @@ func serve(args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(os.Stderr, "%d matches loaded, listening on http://%s\n", len(ms), *addr)
-	return http.ListenAndServe(*addr, api.New(ms, *web))
+	path := *data
+	if path == "" {
+		if path, err = store.DefaultPath(); err != nil {
+			return err
+		}
+	}
+	st, err := store.Open(path)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(os.Stderr, "%d matches loaded, user data in %s, listening on http://%s\n", len(ms), path, *addr)
+	return http.ListenAndServe(*addr, api.New(ms, api.Options{Web: *web, Store: st}))
 }

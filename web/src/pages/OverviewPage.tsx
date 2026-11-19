@@ -1,6 +1,6 @@
 import type { Overview } from "../api";
 import { Loading } from "../components/Loading";
-import { MapFilter, useOverview } from "../components/MapFilter";
+import { MapFilter, scope, useOverview } from "../components/MapFilter";
 import { PlayerTable } from "../components/PlayerTable";
 
 export function OverviewPage() {
@@ -22,7 +22,7 @@ export function OverviewPage() {
 export function Summary({ o }: { o: Overview }) {
   return (
     <p className="muted summary">
-      {o.map && <>Sur {o.map} : </>}
+      {(o.map || o.kind) && <>{scope(o).trim().replace(/^./, (c) => c.toUpperCase())} : </>}
       {o.matches} match{o.matches > 1 ? "s" : ""}, {o.stats.rounds} rounds
       {o.stats.skippedRounds > 0 && ` (${o.stats.skippedRounds} écartés : vainqueur inconnu)`}. Fenêtre de trade :{" "}
       {o.tradeWindowMs / 1000} s. Les pourcentages en gris reposent sur moins de 10 cas.

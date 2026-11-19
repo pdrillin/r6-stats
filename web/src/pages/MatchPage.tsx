@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { useApi, type MatchDetail, type Round } from "../api";
+import { kindLabels, put, useApi, type MatchDetail, type MatchKind, type Round } from "../api";
 import { RoundTimeline } from "../components/charts";
 import { Loading } from "../components/Loading";
 import { PlayerTable, teamPath } from "../components/PlayerTable";
@@ -20,6 +20,7 @@ function Match({ m }: { m: MatchDetail }) {
       <h1>
         {m.map} <Score teams={m.teams} score={m.score} />
       </h1>
+      <KindPicker m={m} />
       <p className="muted summary">
         {date(m.date)} · {m.roundCount} rounds
         {m.superseded > 0 &&
@@ -45,6 +46,41 @@ function Match({ m }: { m: MatchDetail }) {
       <h2>Avantages numériques</h2>
       <Situations teams={m.stats.teams} />
     </>
+  );
+}
+
+/** The kind of the match, which only the user can tell. */
+function KindPicker({ m }: { m: MatchDetail }) {
+  const [error, setError] = useState<string>();
+  const [saving, setSaving] = useState(false);
+  const change = (kind: MatchKind) => {
+    setSaving(true);
+    setError(undefined);
+    put(`matches/${encodeURIComponent(m.id)}/kind`, { kind })
+      .catch((e: unknown) => setError(String(e)))
+      .finally(() => setSaving(false));
+  };
+  return (
+    <div className="filters">
+      <span className="muted" id="kind-label">
+        Type de match
+      </span>
+      <div className="tabs segmented" role="radiogroup" aria-labelledby="kind-label">
+        {(Object.keys(kindLabels) as MatchKind[]).map((k) => (
+          <button
+            key={k}
+            role="radio"
+            aria-checked={m.kind === k}
+            className={m.kind === k ? "active" : undefined}
+            disabled={saving}
+            onClick={() => m.kind !== k && change(k)}
+          >
+            {kindLabels[k]}
+          </button>
+        ))}
+      </div>
+      {error && <span className="error">Échec de l'enregistrement : {error}</span>}
+    </div>
   );
 }
 
