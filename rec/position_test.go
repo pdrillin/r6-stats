@@ -80,3 +80,40 @@ func TestCorpusPositions(t *testing.T) {
 		t.Errorf("defenders start on site in only %d of %d rounds", siteStarts, checked)
 	}
 }
+
+// TestCorpusPlanter checks that every plant is credited to an attacker.
+func TestCorpusPlanter(t *testing.T) {
+	if testing.Short() {
+		t.Skip("decompresses the whole corpus")
+	}
+	plants, credited := 0, 0
+	for _, p := range corpus(t) {
+		f, err := Open(p)
+		if err != nil {
+			t.Fatal(err)
+		}
+		r, err := f.Round()
+		if err != nil {
+			t.Fatal(err)
+		}
+		name := filepath.Base(p)
+		if r.Plant == nil {
+			if r.Planter != "" {
+				t.Errorf("%s: planter %s without a plant", name, r.Planter)
+			}
+			continue
+		}
+		plants++
+		if r.Planter == "" {
+			t.Logf("%s: plant at %d ms without a planter", name, r.Plant.ElapsedMs)
+			continue
+		}
+		credited++
+		for _, pl := range f.Header.Players {
+			if pl.Name == r.Planter && pl.Side != Attack {
+				t.Errorf("%s: planter %s is not attacking", name, r.Planter)
+			}
+		}
+	}
+	t.Logf("%d plants, %d credited", plants, credited)
+}

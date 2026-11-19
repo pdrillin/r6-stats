@@ -98,6 +98,8 @@ type Round struct {
 	Kills    []Kill `json:"kills"`
 	// Plant is when the defuser was planted, nil if it never was.
 	Plant *Clock `json:"plant"`
+	// Planter is the player credited with the plant on the scoreboard.
+	Planter string `json:"planter,omitempty"`
 	// End is the last timer value before the round was over. Zero value when
 	// the round is not complete.
 	End Clock `json:"end"`
@@ -158,6 +160,17 @@ func decodeRound(h *Header, body []byte) *Round {
 	r.Site = readSite(body)
 
 	players := readPlayerObjects(body)
+	// The scoreboard credits the plant even when the round ends before the
+	// timer switches to the defuser countdown; the plant then happened at
+	// the credit.
+	planter, plantOff := readPlanter(body, players)
+	if planter != "" {
+		r.Planter = planter
+		if r.Plant == nil {
+			c := clockAt(plantOff)
+			r.Plant = &c
+		}
+	}
 	tr := readTracks(body, players)
 	r.Positions = map[string][]Position{}
 	for _, p := range players {

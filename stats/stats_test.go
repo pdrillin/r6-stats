@@ -201,8 +201,8 @@ func TestSites(t *testing.T) {
 	plant := &rec.Clock{Phase: rec.PhaseAction, ElapsedMs: 90000}
 	r := compute(
 		// A attacks (see roster) in every round.
-		&rec.Round{Winner: 0, Site: office, Plant: plant},
-		&rec.Round{Winner: 1, Site: office, Plant: plant},
+		&rec.Round{Winner: 0, Site: office, Plant: plant, Planter: "a2"},
+		&rec.Round{Winner: 1, Site: office, Plant: plant, Planter: "a2"},
 		&rec.Round{Winner: 1, Site: office},
 		&rec.Round{Winner: 0, Site: bar},
 		&rec.Round{Winner: 0}, // site unknown: counted in rounds, not in sites
@@ -220,6 +220,9 @@ func TestSites(t *testing.T) {
 	}
 	if s := a.Sites[0]; s.Site != bar || s.Map != "Chalet" || s.Attack != (Record{1, 1}) {
 		t.Errorf("A on %s: %+v", bar, *s)
+	}
+	if got := player(t, r, "a2").Plants; got != (Record{2, 1}) {
+		t.Errorf("a2 plants = %+v, want 2 plants, 1 won", got)
 	}
 	if a.Rounds.Count != 5 {
 		t.Errorf("A rounds = %d, want 5", a.Rounds.Count)

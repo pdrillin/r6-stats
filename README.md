@@ -7,7 +7,7 @@ Le parser est écrit de zéro en Go. Il est validé sur des replays de la saison
 ## Ce qui est décodé
 
 - **En-tête** : map, équipes, score avant le round, joueurs avec opérateur et côté (attaque/défense), version du jeu.
-- **Événements** : kills horodatés (tueur, victime, headshot), pose du défuseur, site de bombe, vainqueur du round et raison.
+- **Événements** : kills horodatés (tueur, victime, headshot), pose du défuseur et poseur, site de bombe, vainqueur du round et raison.
 - **Positions** : pièce où se trouve chaque joueur pendant le round, et pièce du tueur et de la victime pour chaque kill.
 - **Matchs** : regroupement des rounds en matchs, y compris les parties privées rehostées (les enregistrements de rounds interrompus sont écartés).
 
@@ -18,6 +18,7 @@ Le parser est écrit de zéro en Go. Il est validé sur des replays de la saison
 - Clutches : situations 1vX rencontrées et gagnées.
 - Avantages numériques : taux de victoire par situation (5v4, 3v2, 1v3…).
 - Sites de bombe : taux de victoire en attaque et en défense, et taux de pose, par site.
+- Poses : nombre de poses par joueur et rounds gagnés après pose.
 - Pièces : kills et morts par pièce et par côté, et par joueur.
 
 ## Utilisation

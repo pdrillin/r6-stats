@@ -235,6 +235,9 @@ func matches(roots []string) error {
 			}
 			if r.Plant != nil {
 				plant = clock(r.Plant.ElapsedMs)
+				if r.Planter != "" {
+					plant += " " + r.Planter
+				}
 			}
 			site := r.Site
 			if site == "" {
@@ -283,12 +286,12 @@ func statistics(args []string) error {
 	fmt.Println("x/y (z%) reads: y occurrences, x of them in rounds the team won.")
 
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
-	fmt.Fprintln(w, "\nPLAYER\tTEAM\tRNDS\tK\tD\tOPENING KILLS\tOPENING DEATHS\tTRADE KILLS\tDEATHS TRADED\tCLUTCHES")
+	fmt.Fprintln(w, "\nPLAYER\tTEAM\tRNDS\tK\tD\tOPENING KILLS\tOPENING DEATHS\tTRADE KILLS\tDEATHS TRADED\tPLANTS\tCLUTCHES")
 	for _, p := range rep.Players {
-		fmt.Fprintf(w, "%s\t%s\t%d\t%d\t%d\t%s\t%s\t%d\t%s\t%s\n",
+		fmt.Fprintf(w, "%s\t%s\t%d\t%d\t%d\t%s\t%s\t%d\t%s\t%s\t%s\n",
 			p.Name, p.Team, p.Rounds, p.Kills, p.Deaths,
 			record(p.OpeningKills), record(p.OpeningDeaths),
-			p.TradeKills, ratio(p.TradedDeaths, p.Deaths), clutches(p.Clutches))
+			p.TradeKills, ratio(p.TradedDeaths, p.Deaths), record(p.Plants), clutches(p.Clutches))
 	}
 	w.Flush()
 

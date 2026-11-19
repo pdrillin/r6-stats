@@ -81,6 +81,8 @@ Entiers en little-endian sauf mention contraire.
   - **Points d'apparition** : valeur non indexée (`"Campfire"`, `"Lakeside"`) suivie de `0x76fee40a` = 4. **Non fiable** : souvent un reste d'un round précédent, présent aussi chez les défenseurs. Non utilisé.
   - **Positions des joueurs** : `0xaf9899ca` = `ffffffffffffffff`, puis l'élément indexé `[0]` = nom de la pièce (vide si mort ou pas encore déployé), `[1]` = un octet.
 - **Rattachement des positions aux joueurs** (`rec/position.go`) : dans l'état initial, chaque joueur a un bloc qui commence par son nom (clé `0x07949bdc`) et se termine au nom suivant. Le bloc contient deux objets de position : le **premier suit la vue** (drone en préparation, caméras), le **second suit le corps**. Validé sur le corpus : le corps passe à vide au moment de la mort annoncée par le kill feed (532 cas sur 556 ; les autres ne sont pas remis à zéro mais la dernière pièce connue reste juste), et les défenseurs démarrent sur leur site dans 74 rounds sur 79.
+- **Tableau des scores** : un objet par joueur, envoyé juste avant l'objet qui porte son nom dans l'état initial. Compteurs cumulés sur la session d'enregistrement (u32) : `0x1cd2b19d` kills, `0xcd9c5d72` morts, `0x4d737f9e` assists, `0x31a3d4d2` poses de défuseur, `0xecda4f80` score, `0x8310f4f4` jamais mis à jour dans le corpus. Aucun compteur de désamorçages trouvé.
+- **Poseur** : le joueur dont le compteur `0x31a3d4d2` augmente pendant le round (la première valeur vue sert de référence). Les 21 poses du corpus sont attribuées à un attaquant. Quand le round se termine dans le même tick que la pose (Lair, round 2), le chrono ne passe jamais au compte à rebours : la pose est alors datée par ce compteur.
 - La pièce d'un kill est la dernière pièce non vide du corps avant le kill, en comptant les mises à jour du même tick de chrono (elles arrivent parfois juste après l'entrée du feed). Connue pour les 555 kills du corpus.
 - Les noms de pièces peuvent différer légèrement des étiquettes de site (`"1F  Kitchen Cooking"` avec deux espaces sur Kafe) : le parser normalise les espaces.
 - Sur Kafe, les défenseurs du site Fireplace Hall / Mining Room démarrent dans le Train Museum voisin.
@@ -88,7 +90,7 @@ Entiers en little-endian sauf mention contraire.
 
 **Pièges connus**
 - Le vainqueur du round est déduit des règles du jeu (élimination, pose + temps écoulé, pose sans temps écoulé = désamorçage, temps écoulé), pas lu dans le fichier.
-- Une pose est détectée par le saut du chrono vers le haut (compte à rebours du défuseur), ou par le drapeau d'alerte avec plus de 11,5 s restantes.
+- Une pose est détectée par le saut du chrono vers le haut (compte à rebours du défuseur), par le drapeau d'alerte avec plus de 11,5 s restantes, ou à défaut par le compteur de poses du tableau des scores.
 - Quand une pose en cours prolonge le round au-delà de 0:00, le chrono se fige sous 1 s : les événements tardifs s'affichent à 2:59.
 - Un enregistrement fait juste après un rehost commence dans l'état « terminé », puis en sort.
 - Rehosts : même map et mêmes équipes ; un numéro de round répété remplace l'enregistrement précédent (incomplet). Certains fichiers d'après rehost ne listent qu'une équipe dans l'en-tête ; `match.Roster` reprend l'autre équipe d'un round voisin.
@@ -106,7 +108,7 @@ Entiers en little-endian sauf mention contraire.
 
 ## Prochaines étapes
 
-1. Décoder qui pose et qui désamorce (débloque le KOST complet). Piste : l'attaquant présent dans une pièce du site au moment de la pose. Le site de bombe et les positions sont faits.
+1. Calculer le KOST (kill, objectif, survie, trade) et exploiter les assists du tableau des scores. Le désamorceur reste inconnu : piste, le défenseur présent dans une pièce du site au moment du désamorçage. Site, positions et poseur sont faits.
 2. Ventiler les stats existantes par côté, map et opérateur.
 3. Récupérer des replays de ranked sur le PC de l'utilisateur pour vérifier `matchtype`, les profile ids et les différences avec les fichiers de tournoi.
 4. Ensuite le serveur, l'interface web et l'app Windows.

@@ -56,6 +56,10 @@ type Player struct {
 	// keyed by the number of enemies alive at that moment.
 	Clutches map[int]*Record `json:"clutches"`
 
+	// Plants counts the defuser plants credited to the player, and how
+	// many of those rounds the team won.
+	Plants Record `json:"plants"`
+
 	// KillRooms and DeathRooms count kills by the room the player was in,
 	// and deaths by the room the player died in.
 	KillRooms  map[string]int `json:"killRooms"`
@@ -269,6 +273,10 @@ func (c *collector) round(mapName string, teams [2]string, roster []rec.Player, 
 		} else {
 			s.Defense.add(won)
 		}
+	}
+
+	if pl := byName[r.Planter]; pl != nil && attacker >= 0 {
+		pl.Plants.add(r.Winner == attacker)
 	}
 
 	var clutching [2]bool

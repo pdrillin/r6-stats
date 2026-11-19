@@ -17,11 +17,22 @@ type Position struct {
 	Room string `json:"room"`
 }
 
+// Scoreboard object: one per player, sent just before the player's name.
+// Counters are cumulative over the recording session.
+const (
+	keyScoreKills   = 0x1cd2b19d // u32
+	keyScoreDeaths  = 0xcd9c5d72 // u32
+	keyScoreAssists = 0x4d737f9e // u32
+	keyScorePlants  = 0x31a3d4d2 // u32, defuser plants
+	keyScorePoints  = 0xecda4f80 // u32, in-game score
+)
+
 // playerObjects is what the initial state tells about one player.
 type playerObjects struct {
-	name string
-	view string // label object following what the player looks through (drone, camera)
-	body string // label object following the player's body
+	name  string
+	view  string // label object following what the player looks through (drone, camera)
+	body  string // label object following the player's body
+	score string // scoreboard object
 }
 
 // readPlayerObjects walks the initial state. Each player has a block that
@@ -62,6 +73,29 @@ func readPlayerObjects(body []byte) []playerObjects {
 		starts = append(starts, start{at, name})
 	}
 
+	// The scoreboard update opens with the kill counter and comes just
+	// before the update that holds the name.
+	scoreKey := binary.BigEndian.AppendUint32(nil, keyScoreKills)
+	type board struct {
+		off int
+		id  string
+	}
+	var boards []board
+	if len(starts) > 0 {
+		limit := starts[len(starts)-1].off
+		for pos := 0; pos < limit; {
+			i := bytes.Index(body[pos:limit], scoreKey)
+			if i < 0 {
+				break
+			}
+			at := pos + i
+			pos = at + 1
+			if at >= 9 && body[at-9] == tagObject {
+				boards = append(boards, board{at, string(body[at-8 : at])})
+			}
+		}
+	}
+
 	players := make([]playerObjects, len(starts))
 	for i, s := range starts {
 		end := len(body)
@@ -69,6 +103,15 @@ func readPlayerObjects(body []byte) []playerObjects {
 			end = starts[i+1].off
 		}
 		p := playerObjects{name: s.name}
+		prev := 0
+		if i > 0 {
+			prev = starts[i-1].off
+		}
+		for _, b := range boards {
+			if b.off > prev && b.off < s.off {
+				p.score = b.id
+			}
+		}
 		forEachLabel(body[:end], s.off, func(_ int, id string, _ string, room bool) bool {
 			switch {
 			case room && p.view == "":
@@ -200,4 +243,43 @@ func (t tracks) positions(name string, clockAt func(off int) Clock) []Position {
 		last = p.room
 	}
 	return out
+}
+
+// readPlanter returns the player whose plant counter goes up during the
+// recording, and the body offset where it does. The counter is cumulative,
+// so the first value seen for each player is the baseline.
+func readPlanter(body []byte, players []playerObjects) (string, int) {
+	planter, at := "", -1
+	for _, p := range players {
+		if p.score == "" {
+			continue
+		}
+		ref := append([]byte{tagObject}, p.score...)
+		base := -1
+		for pos := 0; ; {
+			i := bytes.Index(body[pos:], ref)
+			if i < 0 {
+				break
+			}
+			off := pos + i
+			pos = off + len(ref)
+			plants := -1
+			readProps(body, pos, func(k uint32, val []byte) {
+				if k == keyScorePlants && len(val) == 4 {
+					plants = int(binary.LittleEndian.Uint32(val))
+				}
+			})
+			switch {
+			case plants < 0:
+			case base < 0:
+				base = plants
+			case plants > base:
+				if at < 0 || off < at {
+					planter, at = p.name, off
+				}
+				pos = len(body) // first increase only
+			}
+		}
+	}
+	return planter, at
 }
