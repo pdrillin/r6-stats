@@ -1,14 +1,14 @@
-import { Link } from "react-router-dom";
-import { useApi, type Overview, type Team } from "../api";
+import type { Team } from "../api";
 import { openingColumns } from "../components/Breakdown";
 import { Loading } from "../components/Loading";
+import { FLink, MapFilter, useOverview } from "../components/MapFilter";
 import { teamPath } from "../components/PlayerTable";
 import { Table, type Column } from "../components/Table";
 import { Ratio, RecRatio, rate } from "../format";
 import { Summary } from "./OverviewPage";
 
 const columns: Column<Team>[] = [
-  { label: "Équipe", text: true, sort: (t) => t.name, render: (t) => <Link to={teamPath(t.name)}>{t.name}</Link> },
+  { label: "Équipe", text: true, sort: (t) => t.name, render: (t) => <FLink to={teamPath(t.name)}>{t.name}</FLink> },
   { label: "Rounds gagnés", sort: (t) => rate(t.rounds.won, t.rounds.count), render: (t) => <RecRatio r={t.rounds} /> },
   {
     label: "Attaque",
@@ -35,12 +35,13 @@ function rateOf(r?: { count: number; won: number }) {
 }
 
 export function TeamsPage() {
-  const state = useApi<Overview>("overview");
+  const state = useOverview();
   return (
     <Loading state={state}>
       {(o) => (
         <>
           <h1>Équipes</h1>
+          <MapFilter maps={o.maps} />
           <Summary o={o} />
           <Table rows={o.stats.teams} columns={columns} rowKey={(t) => t.name} initialSort={1} />
           <h2>Avantages numériques</h2>

@@ -1,6 +1,6 @@
-import { Link } from "react-router-dom";
 import type { Player, Rec } from "../api";
 import { Ratio, RecCount, RecRatio, diff, rate } from "../format";
+import { FLink } from "./MapFilter";
 import { Table, type Column } from "./Table";
 
 export function playerPath(p: { id: string }): string {
@@ -26,13 +26,13 @@ const columns: Column<Player>[] = [
     label: "Joueur",
     text: true,
     sort: (p) => p.name.toLowerCase(),
-    render: (p) => <Link to={playerPath(p)}>{p.name}</Link>,
+    render: (p) => <FLink to={playerPath(p)}>{p.name}</FLink>,
   },
   {
     label: "Équipe",
     text: true,
     sort: (p) => p.team,
-    render: (p) => <Link to={teamPath(p.team)}>{p.team}</Link>,
+    render: (p) => <FLink to={teamPath(p.team)}>{p.team}</FLink>,
   },
   { label: "Rounds", sort: (p) => p.rounds, render: (p) => p.rounds },
   { label: "K", title: "Kills (ennemis seulement)", sort: (p) => p.kills, render: (p) => p.kills },

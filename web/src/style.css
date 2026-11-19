@@ -591,3 +591,49 @@ h2 .tabs {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
 }
+
+/* Filters: one row above the content they scope. */
+.filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 1rem;
+  margin: 0.75rem 0;
+}
+.filters label {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.filters select {
+  font: inherit;
+  color: var(--text);
+  background: var(--panel);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 0.3rem 0.6rem;
+  min-width: 12rem;
+}
+.filters select:focus-visible,
+.link-button:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 1px;
+}
+.link-button {
+  font: inherit;
+  font-size: 0.9rem;
+  color: var(--muted);
+  background: none;
+  border: none;
+  padding: 0;
+  cursor: pointer;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.link-button:hover {
+  color: var(--accent);
+}
+.stale {
+  opacity: 0.55;
+  transition: opacity 0.15s;
+}

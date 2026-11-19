@@ -1,7 +1,7 @@
-import { useState } from "react";
 import { useApi, type Overview, type Room } from "../api";
 import { RoomBars } from "../components/charts";
 import { Loading } from "../components/Loading";
+import { useMapFilter } from "../components/MapFilter";
 import { Table } from "../components/Table";
 
 export function RoomsPage() {
@@ -11,7 +11,10 @@ export function RoomsPage() {
 
 function Rooms({ rooms }: { rooms: Room[] }) {
   const maps = [...new Set(rooms.map((r) => r.map))].sort();
-  const [map, setMap] = useState(maps[0] ?? "");
+  // Rooms only make sense on one map: the tabs set the map filter, and
+  // without one the first map is shown.
+  const [filter, setMap] = useMapFilter();
+  const map = maps.includes(filter) ? filter : (maps[0] ?? "");
   const rows = rooms.filter((r) => r.map === map);
   return (
     <>

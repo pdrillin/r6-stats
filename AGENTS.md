@@ -67,7 +67,7 @@ Organisation : `Replays/<série>/<n> - <map>/Match-<date>-<id>/Match-...-RNN.rec
 | `rec/` | Format de fichier : en-tête (`rec.go`), identifiants de maps (`maps.go`), événements du corps et vainqueur du round (`round.go`) |
 | `match/` | Regroupe les rounds en matchs, gère les rehosts ; `Roster` complète une équipe manquante |
 | `stats/` | Duels d'ouverture, trades, clutches, conversion des avantages numériques |
-| `api/` | API JSON pour l'interface : `/api/overview`, `/api/matches`, `/api/matches/{id}` ; sert aussi l'interface construite (repli sur `index.html` pour les routes de la SPA) |
+| `api/` | API JSON pour l'interface : `/api/overview` (`?map=` pour une seule map, vues précalculées au démarrage), `/api/matches`, `/api/matches/{id}` ; sert aussi l'interface construite (repli sur `index.html` pour les routes de la SPA) |
 | `cmd/r6rec/` | Outil en ligne de commande |
 | `web/` | Interface React + TypeScript + Vite. `src/api.ts` reprend à la main les types JSON de Go : un champ ajouté côté Go doit y être ajouté aussi |
 
@@ -78,6 +78,7 @@ Interface web :
 - Graphiques (`src/components/charts.tsx`, SVG fait main, pas de bibliothèque) : chronologie des kills d'un match, kills et morts par moment du round (joueur, équipe), morts par pièce. Chacun a un tooltip au survol et au clavier, et ses valeurs restent lisibles sans survol (tableau à côté ou « Voir en tableau »).
 - Couleurs : variables de `style.css` (`--t0`/`--t1` équipes, `--attack`/`--defense`, `--kills`/`--deaths`), validées pour le daltonisme et le contraste en clair et en sombre. Le texte n'est jamais écrit dans une couleur de série : une pastille (`tk0`, `tk1`) porte l'identité de l'équipe.
 - Un pourcentage s'affiche toujours avec son échantillon (`Ratio` : « 35 % 8/23 »), grisé sous 10 cas (`SMALL_SAMPLE`). Pour les ouvertures, la fréquence (« 1er kill ») et la conversion (« Gagnés après ») sont dans deux colonnes séparées.
+- Filtre par map : dans l'URL (`?map=Bank`), lu par `useMapFilter`. Il s'applique à toutes les pages de stats, suit la navigation (`FLink`, liens du menu) et se partage avec le lien. La page Pièces n'a pas de vue « toutes les maps » : ses onglets règlent le filtre. Les réponses de l'API sont mises en cache côté client ; pendant un rechargement, l'ancien rendu reste affiché, grisé.
 - Identifiant d'un match : `id` d'en-tête du premier enregistrement. Identifiant d'un joueur : `Player.ID` (profile id, ou `name:` + pseudo).
 
 ## Format de fichier (rétro-ingénierie, Y11S2)
@@ -137,7 +138,7 @@ Entiers en little-endian sauf mention contraire.
 ## Prochaines étapes
 
 1. Récupérer des replays de ranked sur le PC de l'utilisateur pour vérifier `matchtype`, les profile ids et les différences avec les fichiers de tournoi.
-2. Interface web : la compléter selon les retours (filtres par map ou par période, comparaison de joueurs).
+2. Interface web : la compléter selon les retours (filtre par période, comparaison de joueurs).
 3. Serveur (envoi des `.rec`, Postgres, stockage objet), puis l'app Windows qui réutilise l'interface.
 
 Toujours afficher la taille de l'échantillon à côté d'un pourcentage : les clutches et les situations rares reposent sur peu de cas.

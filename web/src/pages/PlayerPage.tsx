@@ -1,21 +1,35 @@
 import { useState, type ReactNode } from "react";
-import { Link, useParams } from "react-router-dom";
-import { useApi, type Overview, type Player } from "../api";
+import { useParams } from "react-router-dom";
+import type { Player } from "../api";
 import { LineTable } from "../components/Breakdown";
 import { TimingChart } from "../components/charts";
 import { Loading } from "../components/Loading";
+import { FLink, MapFilter, useOverview } from "../components/MapFilter";
 import { teamPath } from "../components/PlayerTable";
 import { Table } from "../components/Table";
 import { Ratio, RecCount, diff, sideLabel } from "../format";
 
 export function PlayerPage() {
   const { id = "" } = useParams();
-  const state = useApi<Overview>("overview");
+  const state = useOverview();
   return (
     <Loading state={state}>
       {(o) => {
         const p = o.stats.players.find((x) => x.id === id);
-        return p ? <PlayerView p={p} /> : <p className="error">Joueur introuvable.</p>;
+        return (
+          <>
+            {p ? (
+              <PlayerView p={p} filter={<MapFilter maps={o.maps} />} />
+            ) : (
+              <>
+                <MapFilter maps={o.maps} />
+                <p className="muted">
+                  {o.map ? `Ce joueur n'a pas joué sur ${o.map}.` : "Joueur introuvable."}
+                </p>
+              </>
+            )}
+          </>
+        );
       }}
     </Loading>
   );
@@ -27,15 +41,16 @@ const splits = {
   operator: { label: "Opérateur", lines: (p: Player) => p.byOperator, key: undefined },
 };
 
-function PlayerView({ p }: { p: Player }) {
+function PlayerView({ p, filter }: { p: Player; filter: ReactNode }) {
   const [split, setSplit] = useState<keyof typeof splits>("side");
   const s = splits[split];
   const clutchSizes = Object.keys(p.clutches ?? {}).sort((a, b) => Number(a) - Number(b));
   return (
     <>
       <h1>
-        {p.name} <Link to={teamPath(p.team)} className="team-link">{p.team}</Link>
+        {p.name} <FLink to={teamPath(p.team)} className="team-link">{p.team}</FLink>
       </h1>
+      {filter}
       <div className="cards">
         <Card label="Rounds">{p.rounds}</Card>
         <Card label="K / D / A">

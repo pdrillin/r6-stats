@@ -109,6 +109,10 @@ export interface Report {
 }
 
 export interface Overview {
+  /** The map the statistics are restricted to, "" for all. */
+  map: string;
+  /** Every map played, whatever the filter. */
+  maps: string[];
   matches: number;
   stats: Report;
   tradeWindowMs: number;
@@ -182,21 +186,36 @@ export interface MatchDetail extends MatchSummary {
   stats: Report;
 }
 
-type State<T> = { data?: T; error?: string };
+type State<T> = { data?: T; error?: string; loading?: boolean };
 
-/** Fetches a JSON endpoint of the API. */
+// The data does not change while the server runs, so answers are kept.
+const cache = new Map<string, unknown>();
+
+/**
+ * Fetches a JSON endpoint of the API. While a new path loads, the previous
+ * data is kept and loading is set, so the page does not flash.
+ */
 export function useApi<T>(path: string): State<T> {
-  const [state, setState] = useState<State<T>>({});
+  const [state, setState] = useState<State<T>>(() =>
+    cache.has(path) ? { data: cache.get(path) as T } : { loading: true },
+  );
   useEffect(() => {
+    if (cache.has(path)) {
+      setState({ data: cache.get(path) as T });
+      return;
+    }
     let live = true;
-    setState({});
+    setState((s) => ({ data: s.data, loading: true }));
     fetch("/api/" + path)
       .then(async (res) => {
         if (!res.ok) throw new Error(`${res.status} ${(await res.text()).trim()}`);
         return (await res.json()) as T;
       })
       .then(
-        (data) => live && setState({ data }),
+        (data) => {
+          cache.set(path, data);
+          if (live) setState({ data });
+        },
         (err: unknown) => live && setState({ error: String(err) }),
       );
     return () => {

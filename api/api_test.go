@@ -86,9 +86,40 @@ func TestMatches(t *testing.T) {
 		t.Errorf("overview: %d %+v", code, o)
 	}
 
-	for _, url := range []string{"/api/matches/nope", "/api/nope"} {
+	if o.Map != "" || len(o.Maps) != 1 || o.Maps[0] != "Chalet" {
+		t.Errorf("overview maps: %q %v", o.Map, o.Maps)
+	}
+
+	for _, url := range []string{"/api/matches/nope", "/api/nope", "/api/overview?map=Nope"} {
 		if code := get(t, s, url, nil); code != 404 {
 			t.Errorf("%s: %d, want 404", url, code)
+		}
+	}
+}
+
+func TestOverviewByMap(t *testing.T) {
+	bank := testMatch()
+	bank.Map = "Bank"
+	bank.Rounds[0].Header.MatchID = "m2"
+	s := New([]*match.Match{testMatch(), bank, testMatch()}, "")
+
+	for url, want := range map[string]struct {
+		matches int
+		mapName string
+	}{
+		"/api/overview":            {3, ""},
+		"/api/overview?map=Chalet": {2, "Chalet"},
+		"/api/overview?map=Bank":   {1, "Bank"},
+	} {
+		var o Overview
+		if code := get(t, s, url, &o); code != 200 {
+			t.Fatalf("%s: %d", url, code)
+		}
+		if o.Matches != want.matches || o.Map != want.mapName || o.Stats.Rounds != want.matches {
+			t.Errorf("%s: map %q, %d matches, %d rounds; want %q, %d", url, o.Map, o.Matches, o.Stats.Rounds, want.mapName, want.matches)
+		}
+		if len(o.Maps) != 2 || o.Maps[0] != "Bank" || o.Maps[1] != "Chalet" {
+			t.Errorf("%s: maps %v, want [Bank Chalet]", url, o.Maps)
 		}
 	}
 }

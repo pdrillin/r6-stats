@@ -7,6 +7,7 @@ import (
 	"os"
 	"path"
 	"path/filepath"
+	"sort"
 	"strings"
 	"time"
 
@@ -67,8 +68,13 @@ type RoundPlayer struct {
 	Headshots int `json:"headshots"`
 }
 
-// Overview is the statistics over every match.
+// Overview is the statistics over every match, or over the matches of one
+// map.
 type Overview struct {
+	// Map is the map the statistics are restricted to, empty for all.
+	Map string `json:"map"`
+	// Maps lists every map played, whatever the filter, sorted.
+	Maps    []string      `json:"maps"`
 	Matches int           `json:"matches"`
 	Stats   *stats.Report `json:"stats"`
 	// TradeWindowMs is the trade window the statistics were computed with.
@@ -78,24 +84,39 @@ type Overview struct {
 // Server answers the API requests. Everything is computed once, when the
 // server is built.
 type Server struct {
-	overview Overview
-	list     []MatchSummary
-	details  map[string]*MatchDetail
-	mux      *http.ServeMux
+	overviews map[string]*Overview // by map name, "" for all maps
+	list      []MatchSummary
+	details   map[string]*MatchDetail
+	mux       *http.ServeMux
 }
 
 // New builds the server for the given matches. When web is not empty it is a
 // folder holding the built interface, served for every path outside /api/.
 func New(matches []*match.Match, web string) *Server {
 	s := &Server{
-		overview: Overview{
-			Matches:       len(matches),
-			Stats:         stats.Compute(stats.Options{}, matches...),
+		overviews: map[string]*Overview{},
+		list:      []MatchSummary{},
+		details:   map[string]*MatchDetail{},
+		mux:       http.NewServeMux(),
+	}
+	byMap := map[string][]*match.Match{"": matches}
+	maps := []string{}
+	for _, m := range matches {
+		name := mapName(m)
+		if byMap[name] == nil {
+			maps = append(maps, name)
+		}
+		byMap[name] = append(byMap[name], m)
+	}
+	sort.Strings(maps)
+	for name, ms := range byMap {
+		s.overviews[name] = &Overview{
+			Map:           name,
+			Maps:          maps,
+			Matches:       len(ms),
+			Stats:         stats.Compute(stats.Options{}, ms...),
 			TradeWindowMs: stats.DefaultTradeWindowMs,
-		},
-		list:    []MatchSummary{},
-		details: map[string]*MatchDetail{},
-		mux:     http.NewServeMux(),
+		}
 	}
 	for _, m := range matches {
 		d := detail(m)
@@ -109,7 +130,12 @@ func New(matches []*match.Match, web string) *Server {
 	}
 
 	s.mux.HandleFunc("GET /api/overview", func(w http.ResponseWriter, r *http.Request) {
-		writeJSON(w, s.overview)
+		o := s.overviews[r.URL.Query().Get("map")]
+		if o == nil {
+			http.Error(w, "unknown map", http.StatusNotFound)
+			return
+		}
+		writeJSON(w, o)
 	})
 	s.mux.HandleFunc("GET /api/matches", func(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, s.list)
@@ -156,12 +182,17 @@ func spa(dir string) http.Handler {
 	})
 }
 
+// mapName is the map's name, or its id when the map is unknown.
+func mapName(m *match.Match) string {
+	if m.Map == "" {
+		return "#" + m.MapID
+	}
+	return m.Map
+}
+
 func detail(m *match.Match) *MatchDetail {
 	first := m.Rounds[0].Header
-	name := m.Map
-	if name == "" {
-		name = "#" + m.MapID
-	}
+	name := mapName(m)
 	d := &MatchDetail{
 		MatchSummary: MatchSummary{
 			ID:         first.MatchID,

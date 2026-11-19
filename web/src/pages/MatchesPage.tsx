@@ -1,16 +1,21 @@
 import { Link } from "react-router-dom";
 import { useApi, type MatchSummary } from "../api";
 import { Loading } from "../components/Loading";
+import { MapFilter, useMapFilter } from "../components/MapFilter";
 import { date } from "../format";
 
 export function MatchesPage() {
   const state = useApi<MatchSummary[]>("matches");
+  const [map] = useMapFilter();
   return (
     <Loading state={state}>
-      {(list) => (
+      {(all) => {
+        const list = all.filter((m) => !map || m.map === map);
+        return (
         <>
           <h1>Matchs</h1>
-          {list.length === 0 && <p className="muted">Aucun match.</p>}
+          <MapFilter maps={[...new Set(all.map((m) => m.map))].sort()} />
+          {list.length === 0 && <p className="muted">Aucun match{map && ` sur ${map}`}.</p>}
           <ul className="match-list">
             {[...list].reverse().map((m) => (
               <li key={m.id}>
@@ -26,7 +31,8 @@ export function MatchesPage() {
             ))}
           </ul>
         </>
-      )}
+        );
+      }}
     </Loading>
   );
 }

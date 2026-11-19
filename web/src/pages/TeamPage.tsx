@@ -1,8 +1,9 @@
 import { useParams } from "react-router-dom";
-import { useApi, type Overview, type Team } from "../api";
+import type { Overview, Team } from "../api";
 import { TeamLineTable } from "../components/Breakdown";
 import { TimingChart } from "../components/charts";
 import { Loading } from "../components/Loading";
+import { MapFilter, useOverview } from "../components/MapFilter";
 import { PlayerTable } from "../components/PlayerTable";
 import { Table } from "../components/Table";
 import { RecRatio, rate, sideLabel } from "../format";
@@ -10,12 +11,19 @@ import { Situations } from "./TeamsPage";
 
 export function TeamPage() {
   const { name = "" } = useParams();
-  const state = useApi<Overview>("overview");
+  const state = useOverview();
   return (
     <Loading state={state}>
       {(o) => {
         const t = o.stats.teams.find((x) => x.name === name);
-        return t ? <TeamView t={t} o={o} /> : <p className="error">Équipe introuvable.</p>;
+        return t ? (
+          <TeamView t={t} o={o} />
+        ) : (
+          <>
+            <MapFilter maps={o.maps} />
+            <p className="muted">{o.map ? `Cette équipe n'a pas joué sur ${o.map}.` : "Équipe introuvable."}</p>
+          </>
+        );
       }}
     </Loading>
   );
@@ -32,6 +40,7 @@ function TeamView({ t, o }: { t: Team; o: Overview }) {
           <RecRatio r={t.rounds} /> rounds gagnés
         </span>
       </h1>
+      <MapFilter maps={o.maps} />
 
       <h2>Moment du round</h2>
       <p className="muted">Kills et morts des joueurs de l'équipe par tranche de 30 secondes de la phase d'action.</p>
@@ -40,8 +49,12 @@ function TeamView({ t, o }: { t: Team; o: Overview }) {
       <h2>Par côté</h2>
       <TeamLineTable lines={t.bySide} label="Côté" keyLabel={sideLabel} />
 
-      <h2>Par map</h2>
-      <TeamLineTable lines={t.byMap} label="Map" />
+      {!o.map && (
+        <>
+          <h2>Par map</h2>
+          <TeamLineTable lines={t.byMap} label="Map" />
+        </>
+      )}
 
       <h2>Sites de bombe</h2>
       <p className="muted">Rounds gagnés en attaque et en défense sur chaque site ; poses : rounds d'attaque avec pose, et gagnés.</p>

@@ -45,6 +45,8 @@ go run ./cmd/r6rec serve Replays          # API sur http://127.0.0.1:8080
 cd web && npm install && npm run dev      # interface sur http://localhost:5173
 ```
 
+Toutes les stats peuvent être filtrées par map ; le filtre se garde dans l'adresse de la page.
+
 Pour servir l'interface construite directement depuis l'outil (Node n'est alors nécessaire que pour la construire) :
 
 ```sh

@@ -1,4 +1,4 @@
-import { NavLink, Route, Routes } from "react-router-dom";
+import { NavLink, Route, Routes, useLocation } from "react-router-dom";
 import { MatchPage } from "./pages/MatchPage";
 import { MatchesPage } from "./pages/MatchesPage";
 import { OverviewPage } from "./pages/OverviewPage";
@@ -8,19 +8,22 @@ import { TeamPage } from "./pages/TeamPage";
 import { TeamsPage } from "./pages/TeamsPage";
 
 export function App() {
+  // The map filter follows the reader from page to page.
+  const map = new URLSearchParams(useLocation().search).get("map");
+  const keep = (path: string) => (map ? `${path}?map=${encodeURIComponent(map)}` : path);
   return (
     <>
       <header className="topbar">
-        <NavLink to="/" className="brand">
+        <NavLink to={keep("/")} className="brand">
           r6-stats
         </NavLink>
         <nav>
-          <NavLink to="/" end>
+          <NavLink to={keep("/")} end>
             Joueurs
           </NavLink>
-          <NavLink to="/teams">Équipes</NavLink>
-          <NavLink to="/matches">Matchs</NavLink>
-          <NavLink to="/rooms">Pièces</NavLink>
+          <NavLink to={keep("/teams")}>Équipes</NavLink>
+          <NavLink to={keep("/matches")}>Matchs</NavLink>
+          <NavLink to={keep("/rooms")}>Pièces</NavLink>
         </nav>
       </header>
       <main>
