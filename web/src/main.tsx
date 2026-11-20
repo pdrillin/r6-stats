@@ -3,6 +3,15 @@ import { createRoot } from "react-dom/client";
 import { BrowserRouter } from "react-router-dom";
 import { Root } from "./Root";
 import { SpaceShell } from "./SpaceShell";
+// Fonts are bundled, not loaded from Google: the CSP allows only 'self', and
+// no reader's address goes to a third party.
+import "@fontsource/barlow/latin-400.css";
+import "@fontsource/barlow/latin-500.css";
+import "@fontsource/barlow/latin-600.css";
+import "@fontsource/barlow/latin-700.css";
+import "@fontsource/barlow-condensed/latin-600.css";
+import "@fontsource/barlow-condensed/latin-700.css";
+import "@fontsource/barlow-condensed/latin-800.css";
 import "./style.css";
 
 // Inside a space (/s/<id>/…) the statistics pages run with the space's

@@ -1,19 +1,30 @@
+/*
+ * "Broadcast" look: near-black panels, condensed capitals for titles, scores
+ * and key numbers, square corners, one bright yellow for the brand and the
+ * current choice. Blue and orange stay reserved for the two teams, so the
+ * accent never reads as a team.
+ */
 :root {
-  --bg: #0f1115;
-  --panel: #171a21;
-  --panel-2: #1e222b;
-  --border: #2a2f3a;
-  --text: #e6e8ec;
-  --muted: #8b93a3;
-  --accent: #f5b400;
+  --bg: #060608;
+  --panel: #0e0e12;
+  --panel-2: #16161c;
+  --border: #23232b;
+  --border-strong: #3a3a46;
+  --text: #f2f2f4;
+  --muted: #a9a9b3;
+  /* --accent fills (buttons, current tab), --accent-text draws text and focus rings. */
+  --accent: #ffc21a;
+  --accent-text: #ffc21a;
+  --on-accent: #060608;
   --pos: #3fb950;
   --neg: #f85149;
   /* Series colors, validated for CVD and contrast against --panel. */
   --blue: #3987e5;
   --orange: #d95926;
   --red: #e66767;
-  --grid: #2c2c2a;
+  --grid: #26262e;
   --axis: #464a55;
+  --bar: #d9d9de;
   --t0: var(--blue);
   --t1: var(--orange);
   --t-1: #6b7280;
@@ -21,28 +32,34 @@
   --defense: var(--blue);
   --kills: var(--blue);
   --deaths: var(--red);
+  --radius: 2px;
+  --font: Barlow, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-display: "Barlow Condensed", "Arial Narrow", system-ui, sans-serif;
   color-scheme: dark;
-  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
-  font-size: 14px;
+  font-family: var(--font);
+  font-size: 15px;
   line-height: 1.45;
 }
 
 @media (prefers-color-scheme: light) {
   :root {
-    --bg: #f6f7f9;
+    --bg: #f2f2f5;
     --panel: #ffffff;
-    --panel-2: #f0f2f5;
-    --border: #dde1e7;
-    --text: #1b1f27;
-    --muted: #667085;
-    --accent: #b77f00;
+    --panel-2: #ebebf0;
+    --border: #dcdce3;
+    --border-strong: #9a9aa6;
+    --text: #121216;
+    --muted: #5b5b66;
+    --accent: #ffc21a;
+    --accent-text: #8a5d00;
     --pos: #1a7f37;
     --neg: #cf222e;
     --blue: #2a78d6;
     --orange: #eb6834;
     --red: #e34948;
-    --grid: #e1e0d9;
-    --axis: #c3c2b7;
+    --grid: #e1e0e6;
+    --axis: #c3c2cb;
+    --bar: #2a2a33;
     color-scheme: light;
   }
 }
@@ -62,20 +79,48 @@ a {
   text-decoration: none;
 }
 a:hover {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 
+/* Display type: titles, scores, key numbers, table heads, menu. */
+h1,
+h2,
+h3,
+th,
+.brand,
+.nav-group a,
+.nav-title,
+.button,
+.tabs button,
+.tablist [role="tab"],
+.key-value,
+.card-value,
+.versus-name,
+.team-score,
+.mobilebar-title,
+.row-group,
+.row-card-title {
+  font-family: var(--font-display);
+}
+h1,
+h2,
+h3 {
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.01em;
+  line-height: 1.05;
+}
 h1 {
-  font-size: 1.6rem;
-  margin: 0 0 0.25rem;
+  font-size: 2.6rem;
+  margin: 0 0 0.35rem;
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   gap: 0.75rem;
 }
 h2 {
-  font-size: 1.1rem;
-  margin: 2rem 0 0.5rem;
+  font-size: 1.5rem;
+  margin: 2.25rem 0 0.6rem;
   display: flex;
   align-items: center;
   gap: 0.5rem;
@@ -95,9 +140,14 @@ h2 {
 }
 .brand {
   white-space: nowrap;
+  font-size: 1.35rem;
   font-weight: 800;
-  letter-spacing: 0.02em;
-  color: var(--accent);
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--text);
+}
+.brand::first-letter {
+  color: var(--accent-text);
 }
 .topbar nav {
   display: flex;
@@ -106,7 +156,7 @@ h2 {
 }
 .topbar nav a {
   padding: 0.4rem 0.75rem;
-  border-radius: 6px;
+  border-radius: var(--radius);
   color: var(--muted);
   white-space: nowrap;
 }
@@ -144,7 +194,7 @@ main {
   display: inline-block;
   width: 9px;
   height: 9px;
-  border-radius: 2px;
+  border-radius: var(--radius);
   margin-right: 0.35rem;
   vertical-align: 0.05em;
   background: var(--t0);
@@ -157,7 +207,7 @@ main {
 .table-wrap {
   overflow-x: auto;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--panel);
 }
 table {
@@ -176,8 +226,10 @@ td.text {
   text-align: left;
 }
 th {
-  font-weight: 600;
-  font-size: 0.8rem;
+  font-weight: 700;
+  font-size: 0.85rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--muted);
   border-bottom: 1px solid var(--border);
   background: var(--panel-2);
@@ -199,6 +251,9 @@ tbody tr.group-start td {
 }
 tbody tr:hover td {
   background: var(--panel-2);
+}
+tbody td:first-child a {
+  font-weight: 600;
 }
 
 .ratio .sample {
@@ -230,18 +285,31 @@ h2 .tabs {
   margin: 0;
 }
 .tabs button {
-  font: inherit;
-  font-size: 0.9rem;
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--muted);
-  background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 0.25rem 0.7rem;
+  background: var(--panel-2);
+  border: none;
+  border-radius: 0;
+  padding: 0.35rem 0.85rem;
+  min-height: 2.2rem;
   cursor: pointer;
+  clip-path: polygon(6px 0, 100% 0, calc(100% - 6px) 100%, 0 100%);
+}
+.tabs button:hover {
+  color: var(--text);
 }
 .tabs button.active {
-  color: var(--text);
-  border-color: var(--accent);
+  color: var(--on-accent);
+  background: var(--accent);
+}
+.tabs button:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 2px;
+  clip-path: none;
 }
 
 /* Player cards */
@@ -258,7 +326,7 @@ h2 .tabs {
 .card {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 0.75rem 0.9rem;
 }
 .card-label {
@@ -269,8 +337,9 @@ h2 .tabs {
   font-size: 0.75rem;
 }
 .card-value {
-  font-size: 1.15rem;
-  font-weight: 600;
+  font-size: 1.6rem;
+  font-weight: 800;
+  line-height: 1.1;
   margin-top: 0.2rem;
   font-variant-numeric: tabular-nums;
 }
@@ -291,14 +360,17 @@ h2 .tabs {
   padding: 0.8rem 1rem;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
 }
 .match-card:hover {
   border-color: var(--accent);
   color: inherit;
 }
 .match-card .map {
-  font-weight: 600;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 800;
+  text-transform: uppercase;
 }
 .score {
   display: inline-flex;
@@ -308,6 +380,9 @@ h2 .tabs {
   color: var(--muted);
 }
 .score b {
+  font-family: var(--font-display);
+  font-size: 1.3rem;
+  font-weight: 800;
   color: var(--text);
   font-variant-numeric: tabular-nums;
 }
@@ -323,15 +398,17 @@ h2 .tabs {
   margin: 0.5rem 0;
 }
 .dot {
-  width: 26px;
-  height: 26px;
-  border-radius: 4px;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 0;
   display: grid;
   place-items: center;
-  font-size: 0.75rem;
-  font-weight: 600;
-  color: #fff;
+  font-family: var(--font-display);
+  font-size: 1.25rem;
+  font-weight: 800;
+  color: var(--on-accent);
   background: var(--t-1);
+  clip-path: polygon(5px 0, 100% 0, calc(100% - 5px) 100%, 0 100%);
 }
 .dot.t0 {
   background: var(--t0);
@@ -342,7 +419,7 @@ h2 .tabs {
 
 .rounds {
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--panel);
   overflow: hidden;
 }
@@ -366,11 +443,13 @@ h2 .tabs {
   background: var(--panel-2);
 }
 .round-head:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--accent-text);
   outline-offset: -2px;
 }
 .round-head .num {
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 800;
 }
 .round-head > :last-child {
   text-align: right;
@@ -411,7 +490,7 @@ h2 .tabs {
   font-size: 0.8rem;
   color: var(--muted);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--radius);
   padding: 0 0.3rem;
 }
 .lineups {
@@ -467,7 +546,7 @@ h2 .tabs {
   padding: 0.75rem 1rem 0.5rem;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
 }
 .chart-plot {
   position: relative;
@@ -509,7 +588,9 @@ h2 .tabs {
   font-variant-numeric: tabular-nums;
 }
 .chart .label {
-  font-size: 12px;
+  font-family: var(--font-display);
+  font-size: 13px;
+  font-weight: 600;
   fill: var(--text);
 }
 .chart .value {
@@ -540,7 +621,7 @@ h2 .tabs {
   r: 7px;
 }
 .mark-group:focus-visible rect[fill="transparent"] {
-  stroke: var(--accent);
+  stroke: var(--accent-text);
   stroke-width: 1;
 }
 .tooltip {
@@ -553,7 +634,7 @@ h2 .tabs {
   font-size: 0.85rem;
   background: var(--panel-2);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius);
   box-shadow: 0 4px 14px rgba(0, 0, 0, 0.25);
 }
 .tip-title {
@@ -600,16 +681,17 @@ h2 .tabs {
 }
 .filters select {
   font: inherit;
+  min-height: 2.4rem;
   color: var(--text);
   background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
   padding: 0.3rem 0.6rem;
   min-width: 12rem;
 }
 .filters select:focus-visible,
 .link-button:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--accent-text);
   outline-offset: 1px;
 }
 .link-button {
@@ -624,7 +706,7 @@ h2 .tabs {
   text-underline-offset: 3px;
 }
 .link-button:hover {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 .stale {
   opacity: 0.55;
@@ -648,14 +730,15 @@ h2 .tabs {
   text-align: right;
 }
 .versus-name {
-  font-size: 1.3rem;
-  font-weight: 700;
+  font-size: 1.9rem;
+  font-weight: 800;
+  text-transform: uppercase;
   color: var(--text);
 }
 .versus {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 0.25rem 1rem;
 }
 .versus-row {
@@ -759,7 +842,7 @@ h3 {
   padding: 0.9rem 1rem;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   cursor: pointer;
 }
 .team-picker button:hover,
@@ -778,7 +861,7 @@ h3 {
   padding: 0;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
 }
 .result-list li {
   display: flex;
@@ -798,13 +881,19 @@ h3 {
   place-items: center;
   width: 1.6rem;
   height: 1.6rem;
-  border-radius: 4px;
+  border-radius: var(--radius);
   font-size: 0.8rem;
   font-weight: 700;
   border: 1px solid var(--border);
 }
+.outcome {
+  font-family: var(--font-display);
+  font-size: 0.95rem;
+  font-weight: 800;
+}
 .outcome.win {
-  color: var(--pos);
+  color: var(--on-accent);
+  background: var(--pos);
   border-color: var(--pos);
 }
 .outcome.loss {
@@ -814,7 +903,7 @@ h3 {
 .rate-bars {
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   padding: 0.4rem 1rem;
 }
 .rate-row {
@@ -834,26 +923,30 @@ h3 {
 }
 .rate-track {
   position: relative;
-  height: 10px;
-  border-radius: 4px;
+  height: 8px;
   background: var(--grid);
+  transform: skewX(-20deg);
 }
 .rate-fill {
   position: absolute;
   inset: 0 auto 0 0;
-  border-radius: 4px;
-  background: var(--blue);
+  background: var(--bar);
 }
 .rate-half {
   position: absolute;
   left: 50%;
-  top: -3px;
-  bottom: -3px;
-  width: 1px;
-  background: var(--muted);
+  top: -4px;
+  bottom: -4px;
+  width: 2px;
+  background: var(--accent-text);
 }
 .rate-value {
   font-variant-numeric: tabular-nums;
+}
+.rate-value b {
+  font-family: var(--font-display);
+  font-size: 1.15rem;
+  font-weight: 800;
 }
 .rate-value .sample {
   color: var(--muted);
@@ -894,7 +987,7 @@ h3 {
   font-weight: 500;
   color: var(--muted);
   border: 1px solid var(--border);
-  border-radius: 4px;
+  border-radius: var(--radius);
   vertical-align: 0.1em;
 }
 .kind-badge.official {
@@ -926,7 +1019,7 @@ main.narrow {
   padding: 0.85rem 1rem;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
 }
 .space-card:hover,
 .space-card:focus-visible {
@@ -939,10 +1032,11 @@ main.narrow {
 }
 input:not([type="file"]) {
   font: inherit;
+  min-height: 2.4rem;
   color: var(--text);
   background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 6px;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
   padding: 0.3rem 0.6rem;
   min-width: 14rem;
 }
@@ -950,18 +1044,21 @@ input:focus-visible,
 select:focus-visible,
 .button:focus-visible,
 .button:focus-within {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--accent-text);
   outline-offset: 1px;
 }
 .button {
   display: inline-block;
-  font: inherit;
-  font-size: 0.95rem;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--text);
   background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 6px;
-  padding: 0.4rem 0.9rem;
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius);
+  padding: 0.45rem 1rem;
   cursor: pointer;
 }
 .button:hover {
@@ -971,8 +1068,16 @@ select:focus-visible,
 .button.primary {
   background: var(--accent);
   border-color: var(--accent);
-  color: #111;
-  font-weight: 600;
+  color: var(--on-accent);
+  font-weight: 800;
+  clip-path: polygon(8px 0, 100% 0, 100% calc(100% - 8px), calc(100% - 8px) 100%, 0 100%, 0 8px);
+}
+.button.primary:hover {
+  color: var(--on-accent);
+  filter: brightness(1.08);
+}
+.button.primary:focus-visible {
+  clip-path: none;
 }
 .button:disabled {
   opacity: 0.6;
@@ -983,7 +1088,7 @@ select:focus-visible,
   padding: 2rem 1rem;
   text-align: center;
   border: 2px dashed var(--border);
-  border-radius: 10px;
+  border-radius: var(--radius);
   background: var(--panel);
 }
 .dropzone p {
@@ -1006,7 +1111,7 @@ select:focus-visible,
   padding: 0.75rem 1rem;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
 }
 .member {
   display: inline-flex;
@@ -1016,6 +1121,7 @@ select:focus-visible,
 .avatar {
   width: 28px;
   height: 28px;
+  font-family: var(--font-display);
   border-radius: 50%;
   display: inline-grid;
   place-items: center;
@@ -1095,8 +1201,7 @@ select:focus-visible,
   z-index: 3;
 }
 .sidebar .brand {
-  padding: 0.2rem 0.5rem;
-  font-size: 1.1rem;
+  padding: 0.2rem 0.6rem;
 }
 .content {
   margin-left: 232px;
@@ -1108,15 +1213,17 @@ select:focus-visible,
 .space-block {
   padding: 0.6rem 0.65rem;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   background: var(--panel-2);
   display: grid;
   gap: 0.1rem;
   font-size: 0.85rem;
 }
 .space-name {
-  font-weight: 700;
-  font-size: 0.95rem;
+  font-family: var(--font-display);
+  font-weight: 800;
+  font-size: 1.15rem;
+  text-transform: uppercase;
   overflow-wrap: anywhere;
 }
 .small-link {
@@ -1127,6 +1234,7 @@ select:focus-visible,
 }
 .upload-button {
   text-align: center;
+  padding: 0.65rem 1rem;
 }
 .upload-button.active {
   outline: 2px solid var(--text);
@@ -1141,17 +1249,21 @@ select:focus-visible,
   gap: 0.1rem;
 }
 .nav-title {
-  font-size: 0.72rem;
+  font-size: 0.8rem;
   font-weight: 700;
-  letter-spacing: 0.06em;
+  letter-spacing: 0.2em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--accent-text);
   padding: 0 0.6rem 0.25rem;
 }
 .nav-group a {
-  padding: 0.45rem 0.6rem;
-  border-radius: 6px;
-  color: var(--text);
+  padding: 0.5rem 0.6rem;
+  border-radius: 0;
+  font-size: 1.1rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  color: var(--muted);
 }
 .nav-group a:hover {
   background: var(--panel-2);
@@ -1159,13 +1271,14 @@ select:focus-visible,
 }
 .nav-group a.active {
   background: var(--panel-2);
-  font-weight: 600;
+  color: var(--text);
+  font-weight: 700;
   box-shadow: inset 3px 0 0 var(--accent);
 }
 .nav-group a:focus-visible,
 .sidebar .brand:focus-visible,
 .menu-button:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--accent-text);
   outline-offset: 1px;
 }
 .account-block {
@@ -1216,13 +1329,15 @@ select:focus-visible,
     color: var(--text);
     background: none;
     border: 1px solid var(--border);
-    border-radius: 8px;
+    border-radius: var(--radius);
     cursor: pointer;
   }
   .mobilebar-title {
     flex: 1;
     min-width: 0;
-    font-weight: 700;
+    font-size: 1.25rem;
+    font-weight: 800;
+    text-transform: uppercase;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
@@ -1259,6 +1374,20 @@ select:focus-visible,
   margin: 0 0 0.5rem;
   color: var(--muted);
 }
+/* The home and match headers are a broadcast band across the page. */
+.page-head,
+.match-head {
+  margin: -1.5rem -1.5rem 1.5rem;
+  padding: 1.75rem 1.5rem 1.25rem;
+  border-bottom: 1px solid var(--border);
+}
+.page-head {
+  background: linear-gradient(100deg, color-mix(in srgb, var(--accent) 12%, transparent), transparent 55%);
+}
+.page-head h1 {
+  font-size: 4rem;
+  line-height: 0.95;
+}
 .visually-hidden {
   position: absolute;
   width: 1px;
@@ -1273,7 +1402,7 @@ select:focus-visible,
   background: var(--panel);
   border: 1px solid var(--border);
   border-left: 3px solid var(--accent);
-  border-radius: 8px;
+  border-radius: var(--radius);
 }
 .checklist h2 {
   margin: 0 0 0.6rem;
@@ -1319,24 +1448,28 @@ select:focus-visible,
 .key-numbers {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 0.75rem;
+  gap: 2px;
   margin: 1rem 0 0.5rem;
+  background: var(--border);
+  border: 1px solid var(--border);
 }
 .key-number {
-  padding: 0.9rem 1rem;
+  padding: 1rem 1.2rem;
   background: var(--panel);
-  border: 1px solid var(--border);
-  border-radius: 10px;
 }
 .key-label {
-  font-size: 0.85rem;
+  font-family: var(--font-display);
+  font-size: 0.9rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
   color: var(--muted);
 }
 .key-value {
-  font-size: 2rem;
-  font-weight: 700;
-  line-height: 1.2;
-  margin: 0.15rem 0;
+  font-size: 3rem;
+  font-weight: 800;
+  line-height: 1;
+  margin: 0.25rem 0;
 }
 .key-sub {
   font-size: 0.8rem;
@@ -1356,7 +1489,7 @@ select:focus-visible,
   padding: 0.65rem 0.9rem;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   line-height: 1.5;
 }
 .insight-mark {
@@ -1377,7 +1510,15 @@ select:focus-visible,
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
   .key-value {
-    font-size: 1.6rem;
+    font-size: 2.2rem;
+  }
+  .page-head,
+  .match-head {
+    margin: -1rem -1rem 1.25rem;
+    padding: 1.25rem 1rem 1rem;
+  }
+  .page-head h1 {
+    font-size: 2.8rem;
   }
 }
 
@@ -1392,6 +1533,8 @@ th:not(.text) .th-inner {
 }
 .th-sort {
   font: inherit;
+  letter-spacing: inherit;
+  text-transform: inherit;
   color: inherit;
   background: none;
   border: none;
@@ -1406,9 +1549,9 @@ th:not(.text) .th-inner {
 .th-sort:focus-visible,
 .help-button:focus-visible,
 .columns-toggle:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--accent-text);
   outline-offset: 2px;
-  border-radius: 3px;
+  border-radius: var(--radius);
 }
 .help-button {
   font: inherit;
@@ -1422,7 +1565,7 @@ th:not(.text) .th-inner {
 }
 .help-button:hover,
 .help-button[aria-expanded="true"] {
-  color: var(--accent);
+  color: var(--accent-text);
 }
 .help-bubble {
   position: fixed;
@@ -1436,7 +1579,7 @@ th:not(.text) .th-inner {
   color: var(--text);
   background: var(--panel-2);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
 }
 .table-block {
@@ -1465,7 +1608,7 @@ th:not(.text) .th-inner {
   color: var(--text);
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 6px;
+  border-radius: var(--radius);
   padding: 0.25rem 0.4rem;
   max-width: 13rem;
 }
@@ -1488,10 +1631,12 @@ th:not(.text) .th-inner {
   padding: 0.7rem 0.85rem;
   background: var(--panel);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
 }
 .row-card-title {
-  font-weight: 700;
+  font-size: 1.2rem;
+  font-weight: 800;
+  text-transform: uppercase;
   margin-bottom: 0.4rem;
 }
 .row-card dl {
@@ -1517,7 +1662,13 @@ th:not(.text) .th-inner {
 
 /* Match page */
 .match-head {
-  margin-bottom: 1.25rem;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--t0) 18%, transparent),
+    transparent 40%,
+    transparent 60%,
+    color-mix(in srgb, var(--t1) 18%, transparent)
+  );
 }
 .match-title {
   display: flex;
@@ -1529,10 +1680,11 @@ th:not(.text) .th-inner {
 }
 .match-score {
   display: flex;
-  align-items: baseline;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 0.9rem;
-  margin: 0.35rem 0 0.2rem;
-  font-size: 1.15rem;
+  margin: 0.75rem 0 0.4rem;
+  font-size: 1.9rem;
 }
 .team-score {
   display: inline-flex;
@@ -1545,21 +1697,37 @@ th:not(.text) .th-inner {
 }
 .team-score a {
   color: inherit;
-  font-weight: 600;
+  font-weight: 800;
+  text-transform: uppercase;
 }
 .team-score b {
-  font-size: 2rem;
+  font-size: 4.5rem;
+  font-weight: 800;
   line-height: 1;
+  padding: 0 0.3em;
   font-variant-numeric: tabular-nums;
   color: var(--muted);
+  background: var(--panel-2);
+  clip-path: polygon(10px 0, 100% 0, calc(100% - 10px) 100%, 0 100%);
 }
-.team-score.won,
-.team-score.won b {
+.team-score.won {
   color: var(--text);
+}
+.team-score.won b {
+  color: var(--on-accent);
+  background: var(--accent);
 }
 .match-dash {
   color: var(--muted);
   font-size: 1.5rem;
+}
+@media (max-width: 600px) {
+  .match-score {
+    font-size: 1.4rem;
+  }
+  .team-score b {
+    font-size: 3rem;
+  }
 }
 .tablist {
   display: flex;
@@ -1567,9 +1735,14 @@ th:not(.text) .th-inner {
   border-bottom: 1px solid var(--border);
   margin: 0.5rem 0 1rem;
   overflow-x: auto;
+  overflow-y: hidden;
 }
 .tablist [role="tab"] {
-  font: inherit;
+  font-family: var(--font-display);
+  font-size: 1.2rem;
+  font-weight: 800;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
   color: var(--muted);
   background: none;
   border: none;
@@ -1584,11 +1757,11 @@ th:not(.text) .th-inner {
 }
 .tablist [role="tab"].active {
   color: var(--text);
-  font-weight: 600;
+  background: var(--panel);
   border-bottom-color: var(--accent);
 }
 .tablist [role="tab"]:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--accent-text);
   outline-offset: -2px;
 }
 .tabpanel > h2:first-child {
@@ -1609,9 +1782,6 @@ th:not(.text) .th-inner {
 button.dot {
   border: none;
   cursor: pointer;
-  font: inherit;
-  font-size: 0.75rem;
-  font-weight: 600;
 }
 button.dot:hover {
   filter: brightness(1.15);
@@ -1619,14 +1789,16 @@ button.dot:hover {
 button.dot:focus-visible {
   outline: 2px solid var(--text);
   outline-offset: 2px;
+  clip-path: none;
 }
 .swatch.t1-swatch {
   background: var(--t1);
 }
 .compare-table th[scope="row"] {
   color: var(--text);
-  font-size: 0.9rem;
-  font-weight: 500;
+  font-family: var(--font-display);
+  font-size: 1rem;
+  font-weight: 700;
   background: none;
   position: static;
 }
@@ -1650,7 +1822,7 @@ button.dot:focus-visible {
   color: var(--muted);
   background: none;
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   cursor: pointer;
 }
 .menu-trigger:hover,
@@ -1659,7 +1831,7 @@ button.dot:focus-visible {
   border-color: var(--muted);
 }
 .menu-trigger:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--accent-text);
   outline-offset: 1px;
 }
 .menu-items {
@@ -1671,7 +1843,7 @@ button.dot:focus-visible {
   padding: 0.3rem;
   background: var(--panel-2);
   border: 1px solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--radius);
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.3);
 }
 .menu-items button {
@@ -1682,7 +1854,7 @@ button.dot:focus-visible {
   color: var(--text);
   background: none;
   border: none;
-  border-radius: 6px;
+  border-radius: var(--radius);
   padding: 0.5rem 0.65rem;
   cursor: pointer;
 }
