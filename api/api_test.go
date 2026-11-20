@@ -10,9 +10,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pdrillin/r6-stats/match"
-	"github.com/pdrillin/r6-stats/rec"
-	"github.com/pdrillin/r6-stats/store"
+	"github.com/pdrillin/stratdata/match"
+	"github.com/pdrillin/stratdata/rec"
+	"github.com/pdrillin/stratdata/store"
 )
 
 func testMatch() *match.Match {

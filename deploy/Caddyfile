@@ -1,4 +1,4 @@
-# Configuration Caddy : HTTPS automatique (Let's Encrypt) devant r6-stats.
+# Configuration Caddy : HTTPS automatique (Let's Encrypt) devant stratdata.
 # Remplacer stats.example.org par le domaine, puis copier vers
 # /etc/caddy/Caddyfile et recharger : systemctl reload caddy
 
@@ -24,7 +24,7 @@ stats.example.org {
 	reverse_proxy 127.0.0.1:8642
 
 	log {
-		output file /var/log/caddy/r6-stats.log {
+		output file /var/log/caddy/stratdata.log {
 			roll_size 20MiB
 			roll_keep 5
 		}

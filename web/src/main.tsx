@@ -19,7 +19,7 @@ initTheme();
 
 // Inside a space (/s/<id>/…) the statistics pages run with the space's
 // address as basename: their links and routes stay the same whether they
-// are served by r6rec (no space) or r6server. Changing space reloads the page.
+// are served by stratrec (no space) or stratdata. Changing space reloads the page.
 const inSpace = /^\/s\/([a-z0-9]+)(?=\/|$)/.exec(window.location.pathname);
 
 createRoot(document.getElementById("root")!).render(

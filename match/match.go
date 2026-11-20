@@ -8,7 +8,7 @@ package match
 import (
 	"sort"
 
-	"github.com/pdrillin/r6-stats/rec"
+	"github.com/pdrillin/stratdata/rec"
 )
 
 // RoundFile is one decoded .rec file.

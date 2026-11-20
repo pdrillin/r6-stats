@@ -16,10 +16,10 @@ import (
 
 	"github.com/klauspost/compress/zstd"
 
-	"github.com/pdrillin/r6-stats/api"
-	"github.com/pdrillin/r6-stats/match"
-	"github.com/pdrillin/r6-stats/rec"
-	"github.com/pdrillin/r6-stats/store"
+	"github.com/pdrillin/stratdata/api"
+	"github.com/pdrillin/stratdata/match"
+	"github.com/pdrillin/stratdata/rec"
+	"github.com/pdrillin/stratdata/store"
 )
 
 // Server holds the spaces and their replays.

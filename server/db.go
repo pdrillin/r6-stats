@@ -12,6 +12,7 @@ package server
 import (
 	"database/sql"
 	"fmt"
+	"os"
 	"path/filepath"
 	"time"
 
@@ -119,7 +120,10 @@ ALTER TABLE spaces ADD COLUMN team_names TEXT NOT NULL DEFAULT '[]';
 // openDB opens the database in dir, creating it and bringing its schema up
 // to date.
 func openDB(dir string) (*sql.DB, error) {
-	dsn := "file:" + filepath.Join(dir, "r6stats.db") +
+	if err := renameLegacyDB(dir); err != nil {
+		return nil, err
+	}
+	dsn := "file:" + filepath.Join(dir, "stratdata.db") +
 		"?_pragma=journal_mode(WAL)&_pragma=foreign_keys(1)&_pragma=busy_timeout(5000)"
 	db, err := sql.Open("sqlite", dsn)
 	if err != nil {
@@ -133,6 +137,24 @@ func openDB(dir string) (*sql.DB, error) {
 		return nil, err
 	}
 	return db, nil
+}
+
+// renameLegacyDB gives the database of the project's former name its
+// current name, with its write-ahead log.
+func renameLegacyDB(dir string) error {
+	newPath, oldPath := filepath.Join(dir, "stratdata.db"), filepath.Join(dir, "r6stats.db")
+	if _, err := os.Stat(newPath); !os.IsNotExist(err) {
+		return nil
+	}
+	if _, err := os.Stat(oldPath); err != nil {
+		return nil
+	}
+	for _, suffix := range []string{"-wal", "-shm", ""} {
+		if err := os.Rename(oldPath+suffix, newPath+suffix); err != nil && !os.IsNotExist(err) {
+			return err
+		}
+	}
+	return nil
 }
 
 func migrate(db *sql.DB) error {

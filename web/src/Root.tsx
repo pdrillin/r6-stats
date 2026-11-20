@@ -9,9 +9,9 @@ import { PrivacyPage } from "./pages/PrivacyPage";
 type Mode = "probing" | "local" | "server";
 
 /**
- * The start of the interface outside a space. r6rec serve has no accounts:
+ * The start of the interface outside a space. stratrec serve has no accounts:
  * it answers 404 to /api/me, and the statistics pages run at the root.
- * r6server knows /api/me: the start page lists the user's spaces.
+ * stratdata knows /api/me: the start page lists the user's spaces.
  */
 export function Root() {
   const [mode, setMode] = useState<Mode>("probing");
@@ -27,7 +27,7 @@ export function Root() {
     <>
       <header className="topbar">
         <a href="/" className="brand">
-          r6-stats
+          Stratdata
         </a>
       </header>
       <Routes>

@@ -32,7 +32,7 @@ export function useMyTeam(): [string | undefined, (name: string) => void, string
   const team = settings.data?.myTeam;
   const { server } = useWhere();
   useEffect(() => {
-    // Only r6rec serve ever kept the team in the browser.
+    // Only stratrec serve ever kept the team in the browser.
     if (team === "" && !server) {
       const legacy = takeLegacy();
       if (legacy) set(legacy);

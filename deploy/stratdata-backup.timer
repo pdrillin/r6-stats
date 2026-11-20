@@ -1,5 +1,5 @@
 [Unit]
-Description=Sauvegarde quotidienne de r6-stats
+Description=Sauvegarde quotidienne de stratdata
 
 [Timer]
 OnCalendar=*-*-* 04:30

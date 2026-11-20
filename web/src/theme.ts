@@ -6,7 +6,7 @@ export type ThemeChoice = "auto" | "light" | "dark";
 export const themeLabels: Record<ThemeChoice, string> = { auto: "Auto", light: "Clair", dark: "Sombre" };
 
 // Kept in this browser only: a display preference, not account data.
-const KEY = "r6stats.theme";
+const KEY = "stratdata.theme";
 const systemLight = window.matchMedia("(prefers-color-scheme: light)");
 
 function stored(): ThemeChoice {

@@ -1,8 +1,10 @@
-# r6-stats
+# Stratdata
 
 Statistiques avancées de matchs Rainbow Six Siege, calculées à partir des fichiers de replay `.rec` du jeu.
 
-Le parser est écrit de zéro en Go. Il est validé sur des replays de la saison Y11S2 ; les autres saisons ne sont pas prises en charge pour l'instant.
+Le parser est écrit de zéro en Go. Il est validé sur des replays des saisons Y11S2 (enregistrés en spectateur) et Y11S3 (enregistrés en joueur) ; les saisons plus anciennes ne sont pas prises en charge.
+
+Stratdata est un projet indépendant, sans lien avec Ubisoft. Rainbow Six Siege est une marque d'Ubisoft Entertainment.
 
 ## Aperçu
 
@@ -61,18 +63,18 @@ Les captures utilisent des données réelles, tirées de compétitions professio
 Prérequis : Go 1.25 ou plus récent.
 
 ```sh
-go run ./cmd/r6rec ls <dossier>        # liste les rounds trouvés
-go run ./cmd/r6rec matches <dossier>   # matchs reconstitués, round par round
-go run ./cmd/r6rec stats <dossier>     # statistiques (ajouter -json pour la sortie JSON)
-go run ./cmd/r6rec rooms <dossier>     # kills et morts par pièce
-go run ./cmd/r6rec split side <dossier>  # stats par côté (aussi : map, operator)
-go run ./cmd/r6rec round <fichier.rec> # événements d'un round en JSON
+go run ./cmd/stratrec ls <dossier>        # liste les rounds trouvés
+go run ./cmd/stratrec matches <dossier>   # matchs reconstitués, round par round
+go run ./cmd/stratrec stats <dossier>     # statistiques (ajouter -json pour la sortie JSON)
+go run ./cmd/stratrec rooms <dossier>     # kills et morts par pièce
+go run ./cmd/stratrec split side <dossier>  # stats par côté (aussi : map, operator)
+go run ./cmd/stratrec round <fichier.rec> # événements d'un round en JSON
 ```
 
 ### Interface web
 
 ```sh
-go run ./cmd/r6rec serve Replays          # API sur http://127.0.0.1:8642
+go run ./cmd/stratrec serve Replays          # API sur http://127.0.0.1:8642
 cd web && npm install && npm run dev      # interface sur http://localhost:5173
 ```
 
@@ -82,22 +84,22 @@ Pour servir l'interface construite directement depuis l'outil (Node n'est alors 
 
 ```sh
 cd web && npm run build && cd ..
-go run ./cmd/r6rec serve -web web/dist Replays   # tout sur http://127.0.0.1:8642
+go run ./cmd/stratrec serve -web web/dist Replays   # tout sur http://127.0.0.1:8642
 ```
 
 Le type de chaque match (pracc ou officiel) et ton équipe se choisissent dans l'interface ; ils sont enregistrés dans un fichier de ton dossier de configuration (`-data` pour en choisir un autre).
 
-Chaque replay n'est décodé qu'une fois : le résultat est gardé dans le dossier de cache de l'utilisateur (`r6rec cache info` pour le voir, `r6rec cache clear` pour le vider, `R6STATS_CACHE=off` pour s'en passer).
+Chaque replay n'est décodé qu'une fois : le résultat est gardé dans le dossier de cache de l'utilisateur (`stratrec cache info` pour le voir, `stratrec cache clear` pour le vider, `STRATDATA_CACHE=off` pour s'en passer).
 
 ### Serveur partagé (en construction)
 
-`r6server` garde les matchs de plusieurs espaces (une équipe, une ligue) dans une base SQLite. Chaque replay n'y est décodé qu'une fois, et les données extraites suffisent à tout afficher.
+`stratdata` garde les matchs de plusieurs espaces (une équipe, une ligue) dans une base SQLite. Chaque replay n'y est décodé qu'une fois, et les données extraites suffisent à tout afficher.
 
 ```sh
-go run ./cmd/r6server create "Ma team" team   # affiche l'identifiant de l'espace
-go run ./cmd/r6server import <id> Replays     # envoie les replays d'un dossier
-go run ./cmd/r6server serve                   # API sur http://127.0.0.1:8642
-go run ./cmd/r6server delete <id>             # supprime un espace (demande son nom)
+go run ./cmd/stratdata create "Ma team" team   # affiche l'identifiant de l'espace
+go run ./cmd/stratdata import <id> Replays     # envoie les replays d'un dossier
+go run ./cmd/stratdata serve                   # API sur http://127.0.0.1:8642
+go run ./cmd/stratdata delete <id>             # supprime un espace (demande son nom)
 ```
 
 On s'y connecte avec Discord. Chaque espace a ses responsables (capitaine, coach), qui invitent par lien, et ses joueurs. Un espace n'est visible que de ses membres. Un responsable peut supprimer l'espace (bouton « Supprimer » dans la liste des espaces, ou en bas de la page Membres) : ses matchs et invitations partent avec lui.
@@ -106,30 +108,31 @@ Pour activer la connexion Discord :
 
 1. Sur <https://discord.com/developers/applications>, créer une application (gratuit).
 2. Dans **OAuth2**, ajouter la redirection `http://127.0.0.1:8642/auth/callback` (ou `<adresse du site>/auth/callback` une fois en ligne), puis copier le **Client ID** et le **Client Secret**.
-3. Lancer le serveur avec ces valeurs :
+3. Copier `.env.example` en `.env` (fichier ignoré par git), y coller ces valeurs, puis lancer le serveur, qui lit `.env` tout seul :
 
 ```sh
-R6_DISCORD_CLIENT_ID=… R6_DISCORD_CLIENT_SECRET=… go run ./cmd/r6server serve
+cp .env.example .env
+go run ./cmd/stratdata serve -web web/dist
 ```
 
-Une page de confidentialité (`/privacy`) explique ce qui est gardé et pourquoi. Chacun peut télécharger ses données ou supprimer son compte ; un responsable peut supprimer un match ou un espace. Le nom de l'exploitant et l'adresse de contact se règlent par `R6_OPERATOR` et `R6_CONTACT`.
+Une page de confidentialité (`/privacy`) explique ce qui est gardé et pourquoi. Chacun peut télécharger ses données ou supprimer son compte ; un responsable peut supprimer un match ou un espace. Le nom de l'exploitant et l'adresse de contact se règlent par `STRATDATA_OPERATOR` et `STRATDATA_CONTACT`.
 
 Pour le mettre en ligne (VPS, HTTPS, sauvegardes) : voir [deploy/README.md](deploy/README.md).
 
-`R6_CREATORS` (identifiants Discord séparés par des virgules) limite la création d'espaces pendant la bêta. Pour essayer sans Discord, sur ta machine seulement : `serve -dev-login`, puis ouvrir `http://127.0.0.1:8642/auth/dev?name=Coach`.
+`STRATDATA_CREATORS` (identifiants Discord séparés par des virgules) limite la création d'espaces pendant la bêta. Pour essayer sans Discord, sur ta machine seulement : `serve -dev-login`, puis ouvrir `http://127.0.0.1:8642/auth/dev?name=Coach`.
 
 Sous Windows, les replays sont dans le dossier `MatchReplay` du jeu, avec un sous-dossier par match.
 
 Pour installer l'outil sans cloner le dépôt :
 
 ```sh
-go install github.com/pdrillin/r6-stats/cmd/r6rec@latest
+go install github.com/pdrillin/stratdata/cmd/stratrec@latest
 ```
 
 Pour produire l'exécutable Windows depuis n'importe quel système :
 
 ```sh
-GOOS=windows GOARCH=amd64 go build -o r6rec.exe ./cmd/r6rec
+GOOS=windows GOARCH=amd64 go build -o stratrec.exe ./cmd/stratrec
 ```
 
 ## Organisation du code
@@ -143,7 +146,7 @@ GOOS=windows GOARCH=amd64 go build -o r6rec.exe ./cmd/r6rec
 | `stats/` | Calcul des statistiques |
 | `api/` | API JSON servie à l'interface web |
 | `server/` | Serveur partagé : espaces, envoi des replays, base SQLite |
-| `cmd/r6rec/` | Outil en ligne de commande |
+| `cmd/stratrec/` | Outil en ligne de commande |
 | `web/` | Interface web (React, TypeScript, Vite) |
 
 ## Captures d'écran
@@ -152,11 +155,11 @@ Les images de l'aperçu se refont d'une commande, à relancer après un changeme
 
 ```sh
 cd web && npm run build && cd ..
-go run ./cmd/r6server -data /tmp/r6-captures serve -dev-login -web web/dist
+go run ./cmd/stratdata -data /tmp/r6-captures serve -dev-login -web web/dist
 cd web && npm run screenshots    # dans un autre terminal ; écrit docs/screenshots/
 ```
 
-Variables utiles : `R6_URL` (adresse du serveur), `R6_REPLAYS` (dossier des replays), `CHROME` (navigateur à utiliser).
+Variables utiles : `STRATDATA_URL` (adresse du serveur), `STRATDATA_REPLAYS` (dossier des replays), `CHROME` (navigateur à utiliser).
 
 ## Tests
 

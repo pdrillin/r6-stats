@@ -5,8 +5,8 @@ import (
 	"reflect"
 	"testing"
 
-	"github.com/pdrillin/r6-stats/match"
-	"github.com/pdrillin/r6-stats/rec"
+	"github.com/pdrillin/stratdata/match"
+	"github.com/pdrillin/stratdata/rec"
 )
 
 // Team 0 is "A" with players a1..a5, team 1 is "B" with b1..b5.

@@ -1,31 +1,31 @@
-# Service systemd du serveur r6-stats.
+# Service systemd du serveur stratdata.
 # Installation : voir deploy/README.md.
 
 [Unit]
-Description=r6-stats (serveur partagé)
+Description=stratdata (serveur partagé)
 After=network-online.target
 Wants=network-online.target
 
 [Service]
 Type=simple
-User=r6-stats
-Group=r6-stats
+User=stratdata
+Group=stratdata
 # Secrets et réglages (Discord, adresse publique) : fichier lisible par root
 # seulement, lu par systemd avant de lancer le serveur.
-EnvironmentFile=/etc/r6-stats/r6-stats.env
+EnvironmentFile=/etc/stratdata/stratdata.env
 # Le serveur n'écoute que sur la machine : Caddy reçoit le trafic HTTPS et le
 # lui transmet.
-ExecStart=/opt/r6-stats/current/r6server -data /var/lib/r6-stats serve -addr 127.0.0.1:8642 -url ${R6_URL} -web /opt/r6-stats/current/web
+ExecStart=/opt/stratdata/current/stratdata -data /var/lib/stratdata serve -addr 127.0.0.1:8642 -url ${STRATDATA_URL} -web /opt/stratdata/current/web
 Restart=on-failure
 RestartSec=5
 # Laisse le temps de finir un envoi en cours avant l'arrêt.
 TimeoutStopSec=150
 
 # Données : base et replays bruts.
-StateDirectory=r6-stats
+StateDirectory=stratdata
 StateDirectoryMode=0750
 
-# Durcissement : le serveur ne peut écrire que dans /var/lib/r6-stats.
+# Durcissement : le serveur ne peut écrire que dans /var/lib/stratdata.
 NoNewPrivileges=yes
 ProtectSystem=strict
 ProtectHome=yes

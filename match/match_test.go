@@ -7,7 +7,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pdrillin/r6-stats/rec"
+	"github.com/pdrillin/stratdata/rec"
 )
 
 // TestAssembleCorpus runs on the replay corpus, which is not distributed with

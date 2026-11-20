@@ -4,7 +4,7 @@ Guide pour les agents de code qui travaillent sur ce dépôt. À lire avant tout
 
 ## Le projet
 
-Statistiques de match avancées pour Rainbow Six Siege, calculées à partir des fichiers de replay du jeu (`.rec`). L'objectif est d'aller plus loin que les trackers publics (K/D, winrate) en exploitant l'ordre et le moment des événements de chaque round, pour les équipes et les ligues.
+**Stratdata** : statistiques de match avancées pour Rainbow Six Siege, calculées à partir des fichiers de replay du jeu (`.rec`). L'objectif est d'aller plus loin que les trackers publics (K/D, winrate) en exploitant l'ordre et le moment des événements de chaque round, pour les équipes et les ligues.
 
 Produit prévu, pas encore construit :
 
@@ -14,7 +14,7 @@ Produit prévu, pas encore construit :
 
 L'app Windows locale complète (interface embarquée, sans serveur) a été écartée : elle ne servirait qu'à celui qui l'installe, alors que coach et coéquipiers doivent voir les stats.
 
-Le parsing se fait côté serveur : un changement de saison ne demande qu'une mise à jour du serveur. Aujourd'hui existent le parser Go, le regroupement en matchs, les stats, un outil en ligne de commande avec une API JSON locale (`r6rec serve`, lit un dossier de replays), l'interface web, et le serveur partagé (`r6server` : espaces, envoi des replays, base SQLite, connexion Discord, rôles, invitations) avec son interface (accueil, invitations, envoi par glisser-déposer, membres). Reste la mise en ligne.
+Le parsing se fait côté serveur : un changement de saison ne demande qu'une mise à jour du serveur. Aujourd'hui existent le parser Go, le regroupement en matchs, les stats, un outil en ligne de commande avec une API JSON locale (`stratrec serve`, lit un dossier de replays), l'interface web, et le serveur partagé (`stratdata` : espaces, envoi des replays, base SQLite, connexion Discord, rôles, invitations) avec son interface (accueil, invitations, envoi par glisser-déposer, membres). Reste la mise en ligne.
 
 ## Utilisations visées
 
@@ -45,7 +45,7 @@ Confidentialité et accès :
   - plus tard, **lecture seule** (analyste, remplaçant).
 - **Un membre n'apparaît pas forcément dans les replays** (le coach, par exemple) : l'accès dépend d'un compte sur l'outil, pas de l'identité en jeu. À côté, chaque joueur de l'équipe est relié à son profil Ubisoft pour reconnaître « nous » dans les replays.
 - **Les données de l'adversaire restent dans l'espace** : l'équipe affrontée en pracc ne voit rien, et ces matchs n'alimentent jamais une page publique. Les seules données publiques sont celles d'une ligue qui choisit de publier ses matchs officiels.
-- **RGPD** (fait) : page publique `/privacy` (`web/src/pages/PrivacyPage.tsx`), exploitant et contact réglés sur le serveur (`R6_OPERATOR`, `R6_CONTACT`). Droits réels, pas seulement annoncés : export JSON (`GET /api/me/export`), suppression du compte (`DELETE /api/me`, refusée tant que l'utilisateur est seul responsable d'un espace qui a d'autres membres ; ses espaces sans autre membre partent avec lui), suppression d'un match, de tous les matchs d'un espace (le vider) ou d'un espace par un responsable. Un replay n'est effacé (base et fichier brut) que quand plus aucun espace ne le tient (`server/privacy.go`, `collect`). **Toute modification de ce qui est stocké ou de sa durée doit être reportée sur la page de confidentialité.**
+- **RGPD** (fait) : page publique `/privacy` (`web/src/pages/PrivacyPage.tsx`), exploitant et contact réglés sur le serveur (`STRATDATA_OPERATOR`, `STRATDATA_CONTACT`). Droits réels, pas seulement annoncés : export JSON (`GET /api/me/export`), suppression du compte (`DELETE /api/me`, refusée tant que l'utilisateur est seul responsable d'un espace qui a d'autres membres ; ses espaces sans autre membre partent avec lui), suppression d'un match, de tous les matchs d'un espace (le vider) ou d'un espace par un responsable. Un replay n'est effacé (base et fichier brut) que quand plus aucun espace ne le tient (`server/privacy.go`, `collect`). **Toute modification de ce qui est stocké ou de sa durée doit être reportée sur la page de confidentialité.**
 - **Connexion** : comptes via Discord (OAuth), invitations par lien. Prévu avec le serveur partagé, conçu pour accueillir ensuite les ligues. En attendant, chaque page de l'interface doit être pensée comme appartenant à un espace.
 
 Types de match, à ne jamais mélanger dans une même stat par défaut :
@@ -67,7 +67,7 @@ Ordre retenu :
 
 ## Hébergement et stockage
 
-**Hébergement et monétisation** : bêta fermée et gratuite d'abord (l'équipe de l'utilisateur, puis 2 ou 3 équipes ou une petite ligue), pour valider l'utilité avant toute monétisation. Coût visé : moins de 20 € par mois (petit VPS, domaine). Prévoir dès le départ un plan par espace (quotas d'historique et de stockage, durée de conservation des bruts) pour permettre plus tard un modèle freemium par équipe ou une offre par saison pour les ligues. Pas de publicité. Avant une ouverture publique : une marque propre (pas « R6 » ni les marques de Ubisoft), statut, CGU, RGPD.
+**Hébergement et monétisation** : bêta fermée et gratuite d'abord (l'équipe de l'utilisateur, puis 2 ou 3 équipes ou une petite ligue), pour valider l'utilité avant toute monétisation. Coût visé : moins de 20 € par mois (petit VPS, domaine). Prévoir dès le départ un plan par espace (quotas d'historique et de stockage, durée de conservation des bruts) pour permettre plus tard un modèle freemium par équipe ou une offre par saison pour les ligues. Pas de publicité. Avant une ouverture publique : statut, CGU, RGPD. **Marque : Stratdata** (choisie en novembre 2026, ex-r6-stats) : couvre praccs, matchs officiels et ligues, sans marque d'Ubisoft ; domaines visés `stratdata.gg` (principal) et `stratdata.fr`. Ne jamais réintroduire « R6 », « Rainbow Six » ou « Siege » dans un nom de produit, de domaine ou de binaire (les citer pour décrire le jeu reste possible). Le module Go est `github.com/pdrillin/stratdata`, les commandes `stratrec` (outil local) et `stratdata` (serveur). Les anciens noms restent lus pour la transition : variables `R6_…` et `R6STATS_CACHE`, dossier `r6-data`, base `r6stats.db` (renommée à l'ouverture), réglages `~/.config/r6-stats/data.json` (déplacés).
 
 **Les données extraites suffisent à tout afficher** : rien de ce que voit l'utilisateur ne dépend des replays bruts. Les bruts ne servent qu'à une nouvelle analyse (nouvelle information décodée, correction d'un bug de décodage) et aux contestations en ligue.
 
@@ -85,7 +85,7 @@ Ordre retenu :
 ## Travailler avec l'utilisateur
 
 - L'utilisateur écrit en français : répondre en français. Le code, les identifiants et les commentaires de code restent en anglais. La documentation (README, ce fichier) est en français.
-- Le développement se fait sous Linux, les utilisateurs cibles sont sous Windows. Compilation croisée : `GOOS=windows GOARCH=amd64 go build ./cmd/r6rec`.
+- Le développement se fait sous Linux, les utilisateurs cibles sont sous Windows. Compilation croisée : `GOOS=windows GOARCH=amd64 go build ./cmd/stratrec`.
 - Les anciennes saisons sont explicitement hors périmètre pour l'instant : viser la saison en cours (Y11S3, le corpus pro est en Y11S2) et les suivantes.
 
 ## Commandes
@@ -94,43 +94,43 @@ Ordre retenu :
 go vet ./...
 go test ./...                        # tests unitaires + tests sur le corpus si Replays/ existe
 go test -short ./...                 # saute les tests qui décompressent tout le corpus
-go run ./cmd/r6rec ls Replays        # une ligne par round
-go run ./cmd/r6rec matches Replays   # matchs reconstitués, round par round
-go run ./cmd/r6rec stats Replays     # rapport de stats (-json pour du JSON)
-go run ./cmd/r6rec rooms Replays     # kills et morts par pièce (-n N pièces par map)
-go run ./cmd/r6rec split side Replays  # stats par côté (aussi : map, operator)
-go run ./cmd/r6rec round <fichier.rec>  # événements décodés d'un round
-go run ./cmd/r6rec header -raw <fichier.rec>
-go run ./cmd/r6rec dump <fichier.rec> <sortie.bin>  # corps décompressé, pour la rétro-ingénierie
-go run ./cmd/r6rec serve Replays     # API JSON sur 127.0.0.1:8642 (-addr, -web web/dist, -data fichier)
-go run ./cmd/r6rec cache info        # emplacement et taille du cache (aussi : clear)
+go run ./cmd/stratrec ls Replays        # une ligne par round
+go run ./cmd/stratrec matches Replays   # matchs reconstitués, round par round
+go run ./cmd/stratrec stats Replays     # rapport de stats (-json pour du JSON)
+go run ./cmd/stratrec rooms Replays     # kills et morts par pièce (-n N pièces par map)
+go run ./cmd/stratrec split side Replays  # stats par côté (aussi : map, operator)
+go run ./cmd/stratrec round <fichier.rec>  # événements décodés d'un round
+go run ./cmd/stratrec header -raw <fichier.rec>
+go run ./cmd/stratrec dump <fichier.rec> <sortie.bin>  # corps décompressé, pour la rétro-ingénierie
+go run ./cmd/stratrec serve Replays     # API JSON sur 127.0.0.1:8642 (-addr, -web web/dist, -data fichier)
+go run ./cmd/stratrec cache info        # emplacement et taille du cache (aussi : clear)
 
-go run ./cmd/r6server create "Ma team" team     # crée un espace, affiche son id (aussi : league)
-go run ./cmd/r6server import <id> Replays       # envoie tous les .rec d'un dossier dans l'espace
-go run ./cmd/r6server spaces                    # liste les espaces
-go run ./cmd/r6server invite <id> [manager|player]  # lien d'invitation (premier responsable d'un espace créé ici)
-go run ./cmd/r6server delete <id>               # supprime un espace (demande de taper son nom)
-go run ./cmd/r6server serve                     # 127.0.0.1:8642 (-addr, -url, -web web/dist, -dev-login)
-go run ./cmd/r6server backup <fichier>          # copie cohérente de la base (VACUUM INTO), serveur en marche
-deploy/build.sh                                 # version à installer : dist/r6-stats-<version>.tar.gz
-# -data <dossier> avant la sous-commande : base et bruts (défaut r6-data)
+go run ./cmd/stratdata create "Ma team" team     # crée un espace, affiche son id (aussi : league)
+go run ./cmd/stratdata import <id> Replays       # envoie tous les .rec d'un dossier dans l'espace
+go run ./cmd/stratdata spaces                    # liste les espaces
+go run ./cmd/stratdata invite <id> [manager|player]  # lien d'invitation (premier responsable d'un espace créé ici)
+go run ./cmd/stratdata delete <id>               # supprime un espace (demande de taper son nom)
+go run ./cmd/stratdata serve                     # 127.0.0.1:8642 (-addr, -url, -web web/dist, -dev-login)
+go run ./cmd/stratdata backup <fichier>          # copie cohérente de la base (VACUUM INTO), serveur en marche
+deploy/build.sh                                 # version à installer : dist/stratdata-<version>.tar.gz
+# -data <dossier> avant la sous-commande : base et bruts (défaut stratdata-data)
 ```
 
-Connexion : variables `R6_DISCORD_CLIENT_ID`, `R6_DISCORD_CLIENT_SECRET` (application OAuth2 Discord, redirection `<url>/auth/callback`) et `R6_CREATORS` (identifiants Discord autorisés à créer des espaces, séparés par des virgules ; vide = tout le monde). `R6_OPERATOR` et `R6_CONTACT` : exploitant et contact affichés sur la page de confidentialité. `-dev-login` permet de se connecter par un simple nom (`/auth/dev?name=…`), sans Discord : refusé hors de la machine locale. Hors de la machine locale, `serve` exige une `-url` en https. Ouvrir le site à l'adresse exacte de `-url` : les modifications venant d'une autre origine sont refusées.
+Réglages locaux : `.env` à la racine (ignoré par git, modèle versionné `.env.example`), lu au démarrage par `stratdata` ; une variable déjà définie l'emporte. `STRATDATA_URL` donne la valeur par défaut de `-url`. Connexion : variables `STRATDATA_DISCORD_CLIENT_ID`, `STRATDATA_DISCORD_CLIENT_SECRET` (application OAuth2 Discord, redirection `<url>/auth/callback`) et `STRATDATA_CREATORS` (identifiants Discord autorisés à créer des espaces, séparés par des virgules ; vide = tout le monde). `STRATDATA_OPERATOR` et `STRATDATA_CONTACT` : exploitant et contact affichés sur la page de confidentialité. `-dev-login` permet de se connecter par un simple nom (`/auth/dev?name=…`), sans Discord : refusé hors de la machine locale. Hors de la machine locale, `serve` exige une `-url` en https. Ouvrir le site à l'adresse exacte de `-url` : les modifications venant d'une autre origine sont refusées.
 
-Les rounds décodés sont mis en cache (dossier de cache de l'utilisateur : `~/.cache/r6-stats`, `%LocalAppData%\r6-stats` sous Windows). `R6STATS_CACHE=<dossier>` en choisit un autre, `R6STATS_CACHE=off` le coupe. Corpus : environ 5 s sans cache (décodage en parallèle), 0,2 s avec, 1,7 Mo de cache.
+Les rounds décodés sont mis en cache (dossier de cache de l'utilisateur : `~/.cache/stratdata`, `%LocalAppData%\stratdata` sous Windows). `STRATDATA_CACHE=<dossier>` en choisit un autre, `STRATDATA_CACHE=off` le coupe. Corpus : environ 5 s sans cache (décodage en parallèle), 0,2 s avec, 1,7 Mo de cache.
 
 Interface web (Node 24, dossier `web/`) :
 
 ```sh
 cd web && npm install
-npm run dev     # http://localhost:5173, /api relayé vers r6rec serve (port 8642, ou R6_API)
+npm run dev     # http://localhost:5173, /api relayé vers stratrec serve (port 8642, ou STRATDATA_API)
 npm run build   # vérifie les types puis produit web/dist
 ```
 
-En développement, lancer `r6rec serve Replays` (ou `r6server serve -dev-login -url http://localhost:5173`, pour que la connexion revienne par Vite) d'un côté et `npm run dev` de l'autre. Pour servir l'interface construite sans Node : `r6rec serve -web web/dist Replays` ou `r6server serve -web web/dist`.
+En développement, lancer `stratrec serve Replays` (ou `stratdata serve -dev-login -url http://localhost:5173`, pour que la connexion revienne par Vite) d'un côté et `npm run dev` de l'autre. Pour servir l'interface construite sans Node : `stratrec serve -web web/dist Replays` ou `stratdata serve -web web/dist`.
 
-Captures du README (`docs/screenshots/`, JPEG) : `web/scripts/screenshots.mjs` (`npm run screenshots`) les refait sur un `r6server` vide lancé avec `-dev-login` : il crée un espace, envoie le corpus, suit FaZe, invite un second membre (pour que l'accueil montre le tableau de bord), puis photographie les pages. À relancer après un changement visible de l'interface.
+Captures du README (`docs/screenshots/`, JPEG) : `web/scripts/screenshots.mjs` (`npm run screenshots`) les refait sur un `stratdata` vide lancé avec `-dev-login` : il crée un espace, envoie le corpus, suit FaZe, invite un second membre (pour que l'accueil montre le tableau de bord), puis photographie les pages. À relancer après un changement visible de l'interface.
 
 La CI (`.github/workflows/test.yml`) lance gofmt, vet, les tests et la compilation Windows, et un job séparé construit l'interface web. `gofmt -l .` doit rester vide.
 
@@ -151,25 +151,25 @@ Organisation : `Replays/<série>/<n> - <map>/Match-<date>-<id>/Match-...-RNN.rec
 |---|---|
 | `rec/` | Format de fichier : en-tête (`rec.go`), identifiants de maps (`maps.go`), événements du corps et vainqueur du round (`round.go`) |
 | `cache/` | Cache des rounds décodés, un fichier JSON par replay, clé = SHA-256 du fichier ; décodage en parallèle (6 au plus : chacun tient un corps décompressé) |
-| `store/` | Données saisies par l'utilisateur (type de chaque match, « mon équipe ») : un fichier JSON réécrit en entier, de façon atomique, à chaque changement. `%AppData%\r6-stats\data.json` sous Windows, `~/.config/r6-stats/data.json` sous Linux. Distinct du cache, qu'on peut vider sans rien perdre |
+| `store/` | Données saisies par l'utilisateur (type de chaque match, « mon équipe ») : un fichier JSON réécrit en entier, de façon atomique, à chaque changement. `%AppData%\stratdata\data.json` sous Windows, `~/.config/stratdata/data.json` sous Linux. Distinct du cache, qu'on peut vider sans rien perdre |
 | `match/` | Regroupe les rounds en matchs (parties personnalisées seulement), gère les rehosts ; `NameTeams` nomme les équipes (voir « Noms d'équipe ») ; un match enregistré par plusieurs joueurs ne compte qu'une fois (`dedupe` : les rounds du joueur qui en a le plus de complets, complétés par ceux d'un coéquipier, jamais par ceux d'un adversaire dont les noms d'équipe sont inversés) ; `Roster` complète une équipe manquante |
 | `stats/` | Duels d'ouverture, trades, clutches, conversion des avantages numériques |
-| `api/` | API JSON pour l'interface, celle de `r6rec serve` et celle de chaque espace du serveur (`api.Store` : fichier local ou base du serveur). Lecture : `/api/overview` (`?map=`, `?kind=` ; calculée à la demande, gardée en mémoire, oubliée quand un type de match change), `/api/matches`, `/api/matches/{id}`, `/api/settings`. Écriture : `PUT /api/matches/{id}/kind`, `PUT /api/settings`, en JSON uniquement (un autre site ne peut pas envoyer de JSON au serveur local via le navigateur sans préflight, jamais accepté) ; sert aussi l'interface construite (repli sur `index.html` pour les routes de la SPA) |
-| `server/` | Serveur partagé. `auth.go` : connexion Discord (OAuth2, permission `identify` seule, jeton Discord jamais gardé, `state` lié au navigateur par un cookie), session = cookie aléatoire `HttpOnly` `SameSite=Lax` dont la base ne garde que le SHA-256, refus des modifications venant d'un autre site (`Sec-Fetch-Site`, `Origin`). `members.go` : utilisateurs, rôles (`manager` : invite, retire, change les rôles, étiquette les matchs, choisit « mon équipe » ; `player` : envoie et consulte), un espace garde toujours un responsable, invitations par lien (7 jours, plusieurs usages, révocables, seule l'empreinte est gardée). `http.go` : toutes les règles d'accès ; un non-membre reçoit 404 pour ne pas révéler l'existence de l'espace. `home.go` : page d'accueil minimale servie à `/` quand `-web` n'est pas donné (utilisateur connecté, ses espaces, connexion et déconnexion), pour ne jamais atterrir sur un 404 après la connexion Discord. Espaces, réception des replays (`Add` : décodé une fois, lié à l'espace, doublons repérés par SHA-256), base SQLite (`db.go`, migrations par `PRAGMA user_version` : ne jamais modifier une migration publiée, en ajouter une), bruts dans `raw/aa/bb/<sha256>.rec`, un bloc zstd JSON par round (en-tête complet compris), vue de chaque espace = un `api.Server` construit à la demande et oublié quand l'espace change, `Redecode` au démarrage pour les rounds d'un ancien parser. Routes : voir le commentaire de `Server.Handler` (connexion, `/api/me`, espaces, invitations, membres, envoi en multipart avec l'en-tête `X-R6-Upload: 1`, API de l'espace sous `/api/spaces/{id}/…`) |
-| `cmd/r6rec/` | Outil en ligne de commande |
-| `cmd/r6server/` | Le serveur partagé : `serve` (délais HTTP, arrêt propre sur SIGTERM, `/healthz`), `create`, `invite`, `delete`, `import`, `spaces`, `backup` |
+| `api/` | API JSON pour l'interface, celle de `stratrec serve` et celle de chaque espace du serveur (`api.Store` : fichier local ou base du serveur). Lecture : `/api/overview` (`?map=`, `?kind=` ; calculée à la demande, gardée en mémoire, oubliée quand un type de match change), `/api/matches`, `/api/matches/{id}`, `/api/settings`. Écriture : `PUT /api/matches/{id}/kind`, `PUT /api/settings`, en JSON uniquement (un autre site ne peut pas envoyer de JSON au serveur local via le navigateur sans préflight, jamais accepté) ; sert aussi l'interface construite (repli sur `index.html` pour les routes de la SPA) |
+| `server/` | Serveur partagé. `auth.go` : connexion Discord (OAuth2, permission `identify` seule, jeton Discord jamais gardé, `state` lié au navigateur par un cookie), session = cookie aléatoire `HttpOnly` `SameSite=Lax` dont la base ne garde que le SHA-256, refus des modifications venant d'un autre site (`Sec-Fetch-Site`, `Origin`). `members.go` : utilisateurs, rôles (`manager` : invite, retire, change les rôles, étiquette les matchs, choisit « mon équipe » ; `player` : envoie et consulte), un espace garde toujours un responsable, invitations par lien (7 jours, plusieurs usages, révocables, seule l'empreinte est gardée). `http.go` : toutes les règles d'accès ; un non-membre reçoit 404 pour ne pas révéler l'existence de l'espace. `home.go` : page d'accueil minimale servie à `/` quand `-web` n'est pas donné (utilisateur connecté, ses espaces, connexion et déconnexion), pour ne jamais atterrir sur un 404 après la connexion Discord. Espaces, réception des replays (`Add` : décodé une fois, lié à l'espace, doublons repérés par SHA-256), base SQLite (`db.go`, migrations par `PRAGMA user_version` : ne jamais modifier une migration publiée, en ajouter une), bruts dans `raw/aa/bb/<sha256>.rec`, un bloc zstd JSON par round (en-tête complet compris), vue de chaque espace = un `api.Server` construit à la demande et oublié quand l'espace change, `Redecode` au démarrage pour les rounds d'un ancien parser. Routes : voir le commentaire de `Server.Handler` (connexion, `/api/me`, espaces, invitations, membres, envoi en multipart avec l'en-tête `X-Stratdata-Upload: 1`, API de l'espace sous `/api/spaces/{id}/…`) |
+| `cmd/stratrec/` | Outil en ligne de commande |
+| `cmd/stratdata/` | Le serveur partagé : `serve` (délais HTTP, arrêt propre sur SIGTERM, `/healthz`), `create`, `invite`, `delete`, `import`, `spaces`, `backup` |
 | `deploy/` | Mise en ligne : guide (`README.md`), service systemd durci, Caddyfile (HTTPS, en-têtes de sécurité, CSP vérifiée sur toutes les pages), `build.sh`, `update.sh` (sauvegarde avant bascule, vérification de `/healthz`), sauvegarde quotidienne (`backup.sh`, timer, restic hors du serveur) |
 | `web/` | Interface React + TypeScript + Vite. `src/api.ts` reprend à la main les types JSON de Go : un champ ajouté côté Go doit y être ajouté aussi |
 
 Interface web :
 
-- **Deux modes, une seule application.** Au démarrage hors espace, `Root` appelle `/api/me` : `r6rec serve` répond 404 (pas de comptes, les pages de stats tournent à la racine, `LOCAL` dans `space.ts`) ; `r6server` répond 200 ou 401 (accueil avec connexion et liste des espaces `LobbyPage`, invitation `/invite/<lien>` `InvitePage`).
+- **Deux modes, une seule application.** Au démarrage hors espace, `Root` appelle `/api/me` : `stratrec serve` répond 404 (pas de comptes, les pages de stats tournent à la racine, `LOCAL` dans `space.ts`) ; `stratdata` répond 200 ou 401 (accueil avec connexion et liste des espaces `LobbyPage`, invitation `/invite/<lien>` `InvitePage`).
 - **Dans un espace** (`/s/<id>/…`), `main.tsx` lance l'application avec `/s/<id>` comme `basename` : les liens et routes des pages de stats restent identiques dans les deux modes, et changer d'espace recharge la page. `SpaceShell` vérifie la session (sinon retour à la connexion Discord) et l'appartenance, puis fournit `WhereContext` : préfixe de l'API (`spaces/<id>/`), espace, rôle, utilisateur. `useApi(path)` et `useSend()` résolvent les chemins relativement à l'espace ; un chemin qui commence par `/` est global (`/me`, `/spaces`, `/invitations/…`).
 - **Navigation** (`components/Shell.tsx`) : menu latéral groupé (Équipe : Accueil, Matchs, Équipes ; Analyse : Joueurs, Pièces, Comparer ; Espace : Membres), bouton « Envoyer des replays » en tête, espace courant et compte. Sur téléphone (< 900 px), une barre en haut avec un bouton menu ouvre le même contenu en tiroir (fermé par Échap, par un clic à côté ou après un choix). Les liens gardent les filtres.
 - **Accueil** (`pages/HomePage.tsx`) : en-tête (équipe, matchs, rounds, filtres), étapes « Pour bien démarrer » tant que l'espace n'a pas de matchs, d'équipe choisie ou d'autre membre (mode serveur), quatre chiffres clés, « Ce qui ressort », derniers matchs, accès aux fiches adversaires, rounds par map, joueurs. Les constats viennent de `insights.ts` : une phrase par constat, toujours avec son échantillon, jamais sous 5 cas ni sous 15 points d'écart, 5 au plus, les plus marqués d'abord ; ▲ point fort, ▼ à travailler, ● à savoir (forme et libellé accessible, pas la couleur seule).
 - **Page d'un match** (`pages/MatchPage.tsx`) : en-tête (map, score en grand, date, type de match) et menu « ⋯ » pour les actions rares (suppression, responsables du serveur seulement). Trois onglets (`components/Tabs.tsx`, onglet dans l'URL `?vue=`, flèches, Début et Fin au clavier) : Résumé (carrés de rounds qui ouvrent le round dans l'onglet Rounds, comparaison des deux équipes, chronologie des kills), Rounds (dépliables, « Tout déplier »), Joueurs (tableau et situations).
 - **Rôle** : `canEdit` (responsable, ou mode local) affiche le choix de l'équipe et le sélecteur de type de match ; un joueur voit le type sans pouvoir le changer, et on lui indique qu'un responsable doit choisir l'équipe.
-- **Envoyer** (`/upload`, r6server) : glisser-déposer de fichiers ou de dossiers entiers (lecture récursive via `webkitGetAsEntry`), ou choix d'un dossier ; seuls les `.rec` partent, par lots de 20 fichiers ou 150 Mo, avec progression ; compte rendu ajoutés / déjà présents / écartés / illisibles. Le serveur écarte sans rien stocker tout replay qui n'est pas une partie personnalisée (`rec.Header.CustomGame`, statut `ignored`). **Membres** (`/members`) : rôles, retrait, départ, liens d'invitation (affichés une seule fois, copiables), révocation, et pour un responsable : vider l'espace (tous ses matchs partent, `DELETE /api/spaces/{id}/matches`, `ClearSpace` ; membres, invitations, équipe choisie et noms d'équipe restent) et la suppression de l'espace, toutes deux confirmées en tapant son nom (ancre `#supprimer` pour la suppression). La liste des espaces (`LobbyPage`) a un bouton « Supprimer » pour chaque espace dont on est responsable, qui mène à ce formulaire.
+- **Envoyer** (`/upload`, stratdata) : glisser-déposer de fichiers ou de dossiers entiers (lecture récursive via `webkitGetAsEntry`), ou choix d'un dossier ; seuls les `.rec` partent, par lots de 20 fichiers ou 150 Mo, avec progression ; compte rendu ajoutés / déjà présents / écartés / illisibles. Le serveur écarte sans rien stocker tout replay qui n'est pas une partie personnalisée (`rec.Header.CustomGame`, statut `ignored`). **Membres** (`/members`) : rôles, retrait, départ, liens d'invitation (affichés une seule fois, copiables), révocation, et pour un responsable : vider l'espace (tous ses matchs partent, `DELETE /api/spaces/{id}/matches`, `ClearSpace` ; membres, invitations, équipe choisie et noms d'équipe restent) et la suppression de l'espace, toutes deux confirmées en tapant son nom (ancre `#supprimer` pour la suppression). La liste des espaces (`LobbyPage`) a un bouton « Supprimer » pour chaque espace dont on est responsable, qui mène à ce formulaire.
 - Pages : « Mon équipe » (`/`, tableau de bord de l'équipe choisie : bilan, derniers matchs, adversaires, rounds par map, points forts et sites à travailler, joueurs), fiche adversaire (`/teams/{nom}/scout` : maps, choix de site en défense, attaque par site, joueurs à surveiller, opérateurs par côté, rythme, pièces si une map est choisie, situations), joueurs (`/players`), équipes, détail d'une équipe (côtés, maps, sites, situations), matchs, détail d'un match (rounds dépliables avec kill feed et opérateurs), détail d'un joueur (cartes, ventilation par côté/map/opérateur, pièces), pièces par map, comparaison de deux joueurs (`/compare?a=…&b=…`).
 - Comparaison : stats ramenées au nombre de rounds de chacun (ou en pourcentage), valeur la plus favorable en gras (`lowerIsBetter` pour les morts et la première mort), barres normalisées ligne par ligne, graphiques « moment du round » sur la même échelle. Calculée côté client à partir de `/api/overview`, donc le filtre par map s'applique.
 - Textes en français. Thème clair ou sombre : Auto (selon le système), Clair ou Sombre au choix (`ThemePicker`, en bas du menu et dans le pied des pages hors espace). `theme.ts` pose `data-theme` sur `<html>` avant le premier rendu (depuis `main.tsx`, la CSP interdisant les scripts en ligne) et garde le choix dans le `localStorage` ; `style.css` met les couleurs claires sous `:root[data-theme="light"]`. Pas de bibliothèque d'UI : `src/style.css` et un composant `Table` triable.
@@ -255,11 +255,11 @@ Les replays enregistrés en joueur appellent les équipes « YOUR TEAM » et « 
    - fait : nommer l'adversaire (voir « Noms d'équipe ») ;
    - reconnaître « nous » par les profile ids des joueurs de l'équipe ;
    - faits : seules les parties personnalisées sont gardées, et un match envoyé par plusieurs membres ne compte qu'une fois (`match.dedupe`, testé sur des rounds synthétiques faute de deux enregistrements réels du même match).
-2. **Fait** : cache des rounds décodés et stockage local (`r6rec serve`), qui servent de base au serveur.
+2. **Fait** : cache des rounds décodés et stockage local (`stratrec serve`), qui servent de base au serveur.
 3. **Vues « équipe »** (faits : accueil d'équipe, fiche adversaire, type pracc ou officiel et son filtre) : à compléter avec la reconnaissance de « nous » par les joueurs plutôt que par le nom, la revue d'un round (positions au fil du temps), et un minimum de rounds sur la page Joueurs.
 4. **Serveur partagé**, avant l'app Windows (voir « Hébergement et stockage ») :
-   1. **fait** : cœur testable en local (`server/`, `cmd/r6server`) : base SQLite, stockage des bruts, envoi et décodage des matchs, espaces, API propre à chaque espace. Corpus : 84 rounds en 12 s, base de 508 Ko contre 578 Mo de bruts, stats identiques à `r6rec` ;
-   2. **fait** : connexion Discord, sessions, rôles, invitations, contrôle d'accès, bêta fermée (`R6_CREATORS`), connexion de développement. Testé avec un faux Discord ; reste à l'essayer avec une vraie application Discord ;
+   1. **fait** : cœur testable en local (`server/`, `cmd/stratdata`) : base SQLite, stockage des bruts, envoi et décodage des matchs, espaces, API propre à chaque espace. Corpus : 84 rounds en 12 s, base de 508 Ko contre 578 Mo de bruts, stats identiques à `stratrec` ;
+   2. **fait** : connexion Discord, sessions, rôles, invitations, contrôle d'accès, bêta fermée (`STRATDATA_CREATORS`), connexion de développement. Testé avec un faux Discord ; reste à l'essayer avec une vraie application Discord ;
    3. **fait** : interface : connexion, liste et création des espaces, invitations, envoi par glisser-déposer (dossiers compris), membres et rôles ; les pages de stats tournent dans l'espace ;
    4. mise en ligne : configuration prête dans `deploy/` (VPS Debian ou Ubuntu, Caddy, systemd, restic). Reste à l'utilisateur de choisir l'hébergeur, le domaine et l'espace de sauvegarde, puis de suivre `deploy/README.md`. Non testé sur un vrai VPS.
 5. **App Windows légère** : surveillance de `MatchReplay`, archive locale, envoi automatique à l'espace.

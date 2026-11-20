@@ -1,4 +1,4 @@
-// Command r6server is the shared server: spaces of matches, replays sent by
+// Command stratdata is the shared server: spaces of matches, replays sent by
 // their members, statistics served to the web interface.
 package main
 
@@ -20,35 +20,37 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/pdrillin/r6-stats/server"
+	"github.com/pdrillin/stratdata/server"
 )
 
 const usage = `usage:
-  r6server [-data dir] serve [-addr host:port] [-url base-url] [-web dir] [-dev-login]
+  stratdata [-data dir] serve [-addr host:port] [-url base-url] [-web dir] [-dev-login]
                                        serve the API (and the built interface)
-  r6server [-data dir] spaces          list the spaces
-  r6server [-data dir] create <name> [team|league]
+  stratdata [-data dir] spaces          list the spaces
+  stratdata [-data dir] create <name> [team|league]
                                        create a space, print its id
-  r6server [-data dir] invite <space-id> [manager|player]
+  stratdata [-data dir] invite <space-id> [manager|player]
                                        print an invitation link to the space
-  r6server [-data dir] delete <space-id>
+  stratdata [-data dir] delete <space-id>
                                        delete a space, its matches and invitations
                                        (asks for its name; raw replays no other
                                        space holds are deleted too)
-  r6server [-data dir] import <space-id> <dir>...
+  stratdata [-data dir] import <space-id> <dir>...
                                        send every .rec file under the folders
-  r6server [-data dir] backup <file>   write a consistent copy of the database
+  stratdata [-data dir] backup <file>   write a consistent copy of the database
                                        (safe while serve runs)
 
--data is the folder of the database and the raw replays (default r6-data).
+-data is the folder of the database and the raw replays (default stratdata-data).
 
-Sign-in with Discord reads the environment:
-  R6_DISCORD_CLIENT_ID, R6_DISCORD_CLIENT_SECRET   the OAuth2 application
-  R6_CREATORS   comma-separated Discord ids allowed to create spaces
+The server reads the environment, completed by a .env file in the current
+folder (model: .env.example; variables already set win):
+  STRATDATA_URL   default of -url
+  STRATDATA_DISCORD_CLIENT_ID, STRATDATA_DISCORD_CLIENT_SECRET   the OAuth2 application
+  STRATDATA_CREATORS   comma-separated Discord ids allowed to create spaces
                 (closed beta; empty lets everyone signed in create spaces)
-  R6_OPERATOR, R6_CONTACT   who runs the site and how to reach them
+  STRATDATA_OPERATOR, STRATDATA_CONTACT   who runs the site and how to reach them
                 (shown on the privacy page)
-The Discord application must list <base-url>/auth/callback as redirect.
+Sign-in with Discord needs the application; it must list <base-url>/auth/callback as redirect.
 
 -dev-login signs in by name, without Discord, at /auth/dev?name=…: only on
 the local machine. Off the local machine, serve requires an https -url.
@@ -56,10 +58,16 @@ the local machine. Off the local machine, serve requires an https -url.
 
 func main() {
 	log.SetFlags(0)
-	fl := flag.NewFlagSet("r6server", flag.ExitOnError)
+	if err := loadEnvFile(".env"); err != nil {
+		log.Fatal("stratdata: ", err)
+	}
+	fl := flag.NewFlagSet("stratdata", flag.ExitOnError)
 	fl.Usage = func() { fmt.Fprint(os.Stderr, usage) }
-	data := fl.String("data", "r6-data", "folder of the database and raw replays")
+	data := fl.String("data", defaultData, "folder of the database and raw replays")
 	fl.Parse(os.Args[1:])
+	if *data == defaultData {
+		*data = dataFolder()
+	}
 	args := fl.Args()
 	if len(args) == 0 {
 		fl.Usage()
@@ -68,7 +76,7 @@ func main() {
 
 	s, err := server.Open(*data)
 	if err != nil {
-		log.Fatal("r6server: ", err)
+		log.Fatal("stratdata: ", err)
 	}
 	defer s.Close()
 
@@ -96,14 +104,14 @@ func main() {
 		os.Exit(2)
 	}
 	if err != nil {
-		log.Fatal("r6server: ", err)
+		log.Fatal("stratdata: ", err)
 	}
 }
 
 func serve(s *server.Server, args []string) error {
 	fl := flag.NewFlagSet("serve", flag.ExitOnError)
 	addr := fl.String("addr", "127.0.0.1:8642", "address to listen on")
-	base := fl.String("url", "", "address users reach the server at (default http://<addr>)")
+	base := fl.String("url", env("URL"), "address users reach the server at (default STRATDATA_URL, else http://<addr>)")
 	web := fl.String("web", "", "folder of the built web interface")
 	dev := fl.Bool("dev-login", false, "sign in by name without Discord (local machine only)")
 	fl.Parse(args)
@@ -111,17 +119,17 @@ func serve(s *server.Server, args []string) error {
 	cfg := server.Config{
 		BaseURL: strings.TrimSuffix(*base, "/"),
 		Discord: server.Discord{
-			ClientID:     os.Getenv("R6_DISCORD_CLIENT_ID"),
-			ClientSecret: os.Getenv("R6_DISCORD_CLIENT_SECRET"),
+			ClientID:     env("DISCORD_CLIENT_ID"),
+			ClientSecret: env("DISCORD_CLIENT_SECRET"),
 		},
 		DevLogin: *dev,
-		Operator: os.Getenv("R6_OPERATOR"),
-		Contact:  os.Getenv("R6_CONTACT"),
+		Operator: env("OPERATOR"),
+		Contact:  env("CONTACT"),
 	}
 	if cfg.BaseURL == "" {
 		cfg.BaseURL = "http://" + *addr
 	}
-	for _, id := range strings.Split(os.Getenv("R6_CREATORS"), ",") {
+	for _, id := range strings.Split(env("CREATORS"), ",") {
 		if id = strings.TrimSpace(id); id != "" {
 			cfg.Creators = append(cfg.Creators, id)
 		}
@@ -142,16 +150,16 @@ func serve(s *server.Server, args []string) error {
 		}
 	}
 	if cfg.Discord.ClientID == "" && !*dev {
-		log.Printf("warning: R6_DISCORD_CLIENT_ID is not set, nobody can sign in")
+		log.Printf("warning: STRATDATA_DISCORD_CLIENT_ID is not set, nobody can sign in")
 	}
 	if cfg.Discord.ClientID != "" && cfg.Discord.ClientSecret == "" {
-		return fmt.Errorf("R6_DISCORD_CLIENT_SECRET is not set")
+		return fmt.Errorf("STRATDATA_DISCORD_CLIENT_SECRET is not set")
 	}
 	if cfg.Contact == "" {
-		log.Printf("warning: R6_CONTACT is not set, the privacy page shows no contact")
+		log.Printf("warning: STRATDATA_CONTACT is not set, the privacy page shows no contact")
 	}
 	if len(cfg.Creators) == 0 {
-		log.Printf("R6_CREATORS is empty: everyone signed in can create spaces")
+		log.Printf("STRATDATA_CREATORS is empty: everyone signed in can create spaces")
 	}
 
 	if n, err := s.Redecode(); err != nil {
@@ -212,6 +220,65 @@ func serve(s *server.Server, args []string) error {
 		return err
 	}
 	return <-done
+}
+
+// loadEnvFile sets the variables of a KEY=value file (comments with #,
+// optional quotes) that the environment does not set already: the local
+// settings, secret included, stay out of the shell history. A missing file
+// is fine.
+func loadEnvFile(path string) error {
+	data, err := os.ReadFile(path)
+	if os.IsNotExist(err) {
+		return nil
+	}
+	if err != nil {
+		return err
+	}
+	for n, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(strings.TrimPrefix(strings.TrimSpace(line), "export "))
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		key, value, ok := strings.Cut(line, "=")
+		key, value = strings.TrimSpace(key), strings.TrimSpace(value)
+		if !ok || key == "" {
+			return fmt.Errorf("%s:%d: expected KEY=value", path, n+1)
+		}
+		if len(value) >= 2 && (value[0] == '"' || value[0] == '\'') && value[len(value)-1] == value[0] {
+			value = value[1 : len(value)-1]
+		}
+		if _, set := os.LookupEnv(key); !set {
+			os.Setenv(key, value)
+		}
+	}
+	return nil
+}
+
+const defaultData = "stratdata-data"
+
+// dataFolder is the default data folder, or the one of the project's former
+// name when only that one exists.
+func dataFolder() string {
+	if _, err := os.Stat(defaultData); os.IsNotExist(err) {
+		if fi, err := os.Stat("r6-data"); err == nil && fi.IsDir() {
+			log.Printf("using r6-data, the data folder of the former name (rename it to %s)", defaultData)
+			return "r6-data"
+		}
+	}
+	return defaultData
+}
+
+// env reads STRATDATA_<name>, or R6_<name> as the project's former name set
+// it.
+func env(name string) string {
+	if v := os.Getenv("STRATDATA_" + name); v != "" {
+		return v
+	}
+	if v := os.Getenv("R6_" + name); v != "" {
+		log.Printf("R6_%s is read for STRATDATA_%s: rename it", name, name)
+		return v
+	}
+	return ""
 }
 
 // spaFS serves index.html for paths that are not files, so the interface's

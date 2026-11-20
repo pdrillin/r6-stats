@@ -16,9 +16,9 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/pdrillin/r6-stats/api"
-	"github.com/pdrillin/r6-stats/rec"
-	"github.com/pdrillin/r6-stats/store"
+	"github.com/pdrillin/stratdata/api"
+	"github.com/pdrillin/stratdata/rec"
+	"github.com/pdrillin/stratdata/store"
 )
 
 const corpusDir = "../Replays"
@@ -168,7 +168,7 @@ func (c *client) upload(spaceID string, files []Upload) (int, []Result) {
 		w.Write(f.Data)
 	}
 	mw.Close()
-	rr := c.do("POST", "/api/spaces/"+spaceID+"/replays", mw.FormDataContentType(), &buf, map[string]string{"X-R6-Upload": "1"})
+	rr := c.do("POST", "/api/spaces/"+spaceID+"/replays", mw.FormDataContentType(), &buf, map[string]string{"X-Stratdata-Upload": "1"})
 	var results []Result
 	if rr.Code == http.StatusOK {
 		json.Unmarshal(rr.Body.Bytes(), &results)
@@ -703,9 +703,9 @@ func TestBackup(t *testing.T) {
 	}
 
 	// A backup is a database the server opens as it is: restoring is
-	// putting it back as r6stats.db.
+	// putting it back as stratdata.db.
 	restored := t.TempDir()
-	path := filepath.Join(restored, "r6stats.db")
+	path := filepath.Join(restored, "stratdata.db")
 	if err := s.Backup(path); err != nil {
 		t.Fatal(err)
 	}
@@ -905,5 +905,34 @@ func TestDeleteAccount(t *testing.T) {
 	dave.get("/api/spaces", &spaces)
 	if len(spaces) != 1 || spaces[0].Files != 1 || spaces[0].Role != Manager {
 		t.Errorf("dave's spaces = %+v", spaces)
+	}
+}
+
+func TestLegacyDatabaseName(t *testing.T) {
+	dir := t.TempDir()
+	s, err := Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sp, err := s.CreateSpace("Team", Team, "")
+	if err != nil {
+		t.Fatal(err)
+	}
+	s.Close()
+	// The database as the project's former name kept it.
+	if err := os.Rename(filepath.Join(dir, "stratdata.db"), filepath.Join(dir, "r6stats.db")); err != nil {
+		t.Fatal(err)
+	}
+	s, err = Open(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer s.Close()
+	list, err := s.Spaces()
+	if err != nil || len(list) != 1 || list[0].ID != sp.ID {
+		t.Fatalf("spaces after reopening: %v %v", list, err)
+	}
+	if _, err := os.Stat(filepath.Join(dir, "r6stats.db")); !os.IsNotExist(err) {
+		t.Error("the old database file is still there")
 	}
 }

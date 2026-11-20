@@ -1,4 +1,4 @@
-module github.com/pdrillin/r6-stats
+module github.com/pdrillin/stratdata
 
 go 1.25.0
 

@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/pdrillin/r6-stats/rec"
+	"github.com/pdrillin/stratdata/rec"
 )
 
 // Replays recorded by a player name the teams from the player's point of

@@ -1,22 +1,22 @@
 // Takes the screenshots of the README (docs/screenshots/).
 //
-// It needs an empty r6server started with the development sign-in, and the
+// It needs an empty stratdata started with the development sign-in, and the
 // replay corpus:
 //
-//   go run ./cmd/r6server -data /tmp/r6-shots serve -dev-login -web web/dist
+//   go run ./cmd/stratdata -data /tmp/stratdata-shots serve -dev-login -web web/dist
 //   cd web && npm run screenshots
 //
 // The script signs in, creates a space, sends the corpus, follows FaZe, then
-// photographs the pages. Environment: R6_URL (default
-// http://127.0.0.1:8642), R6_REPLAYS (default ../Replays), CHROME (a
+// photographs the pages. Environment: STRATDATA_URL (default
+// http://127.0.0.1:8642), STRATDATA_REPLAYS (default ../Replays), CHROME (a
 // Chrome or Chromium executable, default /usr/bin/google-chrome).
 
 import { readdir, readFile, mkdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { chromium } from "playwright-core";
 
-const base = process.env.R6_URL ?? "http://127.0.0.1:8642";
-const replays = resolve(process.env.R6_REPLAYS ?? "../Replays");
+const base = process.env.STRATDATA_URL ?? "http://127.0.0.1:8642";
+const replays = resolve(process.env.STRATDATA_REPLAYS ?? "../Replays");
 const out = resolve("../docs/screenshots");
 const team = "FAZE";
 
@@ -48,7 +48,7 @@ for (let i = 0; i < files.length; i += 20) {
     method: "POST",
     body: form,
     headers: {
-      "X-R6-Upload": "1",
+      "X-Stratdata-Upload": "1",
       Origin: base,
       Cookie: (await desktop.cookies()).map((c) => `${c.name}=${c.value}`).join("; "),
     },

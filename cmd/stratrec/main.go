@@ -1,4 +1,4 @@
-// Command r6rec inspects Rainbow Six Siege replay files.
+// Command stratrec inspects Rainbow Six Siege replay files.
 package main
 
 import (
@@ -16,34 +16,34 @@ import (
 	"strings"
 	"text/tabwriter"
 
-	"github.com/pdrillin/r6-stats/api"
-	"github.com/pdrillin/r6-stats/cache"
-	"github.com/pdrillin/r6-stats/match"
-	"github.com/pdrillin/r6-stats/rec"
-	"github.com/pdrillin/r6-stats/stats"
-	"github.com/pdrillin/r6-stats/store"
+	"github.com/pdrillin/stratdata/api"
+	"github.com/pdrillin/stratdata/cache"
+	"github.com/pdrillin/stratdata/match"
+	"github.com/pdrillin/stratdata/rec"
+	"github.com/pdrillin/stratdata/stats"
+	"github.com/pdrillin/stratdata/store"
 )
 
-const usage = `Decoded rounds are cached in the user's cache folder; set R6STATS_CACHE
+const usage = `Decoded rounds are cached in the user's cache folder; set STRATDATA_CACHE
 to another folder, or to "off" to decode every file each time.
 
 usage:
-  r6rec ls <dir>...             one line per round found under the folders
-  r6rec matches <dir>...        rounds grouped into matches, with scoreboards
-  r6rec stats [-json] <dir>...  opening duels, trades, clutches and man-advantage
+  stratrec ls <dir>...             one line per round found under the folders
+  stratrec matches <dir>...        rounds grouped into matches, with scoreboards
+  stratrec stats [-json] <dir>...  opening duels, trades, clutches and man-advantage
                                 conversion over every match under the folders
-  r6rec rooms [-n N] <dir>...   kills and deaths by room, N busiest rooms per map
+  stratrec rooms [-n N] <dir>...   kills and deaths by room, N busiest rooms per map
                                 (default 15, 0 for all)
-  r6rec split side|map|operator <dir>...
+  stratrec split side|map|operator <dir>...
                                 player and team stats split by side, map or operator
-  r6rec serve [-addr host:port] [-web dir] [-data file] <dir>...
+  stratrec serve [-addr host:port] [-web dir] [-data file] <dir>...
                                 serve the statistics to the web interface
                                 (-web: built interface, e.g. web/dist;
                                 -data: match kinds and own team)
-  r6rec cache info|clear         where the decoded rounds are cached, and how many
-  r6rec header [-raw] <file>    header of one round as JSON (-raw: every property)
-  r6rec round <file>            events of one round as JSON
-  r6rec dump <file> <out>       write the decompressed body to <out>
+  stratrec cache info|clear         where the decoded rounds are cached, and how many
+  stratrec header [-raw] <file>    header of one round as JSON (-raw: every property)
+  stratrec round <file>            events of one round as JSON
+  stratrec dump <file> <out>       write the decompressed body to <out>
 `
 
 func main() {
@@ -82,7 +82,7 @@ func main() {
 		os.Exit(2)
 	}
 	if err != nil {
-		fmt.Fprintln(os.Stderr, "r6rec:", err)
+		fmt.Fprintln(os.Stderr, "stratrec:", err)
 		os.Exit(1)
 	}
 }
@@ -223,9 +223,12 @@ func load(roots []string) ([]*match.Match, error) {
 }
 
 // openCache opens the cache of decoded rounds: the user's cache folder, the
-// folder named by R6STATS_CACHE, or none when R6STATS_CACHE is "off".
+// folder named by STRATDATA_CACHE, or none when STRATDATA_CACHE is "off".
 func openCache() (*cache.Cache, error) {
-	dir := os.Getenv("R6STATS_CACHE")
+	dir := os.Getenv("STRATDATA_CACHE")
+	if dir == "" {
+		dir = os.Getenv("R6STATS_CACHE") // the project's former name
+	}
 	if dir == "off" {
 		return nil, nil
 	}
@@ -245,7 +248,7 @@ func cacheCmd(args []string) error {
 		return err
 	}
 	if c == nil {
-		return fmt.Errorf("the cache is off (R6STATS_CACHE=off)")
+		return fmt.Errorf("the cache is off (STRATDATA_CACHE=off)")
 	}
 	switch args[0] {
 	case "info":

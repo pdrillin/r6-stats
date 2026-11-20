@@ -12,7 +12,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	"github.com/pdrillin/r6-stats/match"
+	"github.com/pdrillin/stratdata/match"
 )
 
 // Kind is what a match was played for. Pracc and official matches are both
@@ -48,14 +48,24 @@ type Store struct {
 	data Data
 }
 
-// DefaultPath is the store of the user: %AppData%\r6-stats\data.json on
-// Windows, ~/.config/r6-stats/data.json on Linux.
+// DefaultPath is the store of the user: %AppData%\stratdata\data.json on
+// Windows, ~/.config/stratdata/data.json on Linux.
 func DefaultPath() (string, error) {
 	base, err := os.UserConfigDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(base, "r6-stats", "data.json"), nil
+	path := filepath.Join(base, "stratdata", "data.json")
+	// Data kept under the project's former name moves to the new one.
+	old := filepath.Join(base, "r6-stats", "data.json")
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		if _, err := os.Stat(old); err == nil {
+			if err := os.MkdirAll(filepath.Dir(path), 0o755); err == nil {
+				os.Rename(old, path)
+			}
+		}
+	}
+	return path, nil
 }
 
 // Open reads the store at path. A missing file is an empty store; the file

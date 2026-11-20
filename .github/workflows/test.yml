@@ -18,8 +18,8 @@ jobs:
       - run: go test ./...
       # Le serveur décode les envois en parallèle : vérifier l'absence de course.
       - run: go test -race -short ./server ./api ./store ./cache
-      - run: GOOS=windows GOARCH=amd64 go build -o r6rec.exe ./cmd/r6rec
-      - run: GOOS=windows GOARCH=amd64 go build -o r6server.exe ./cmd/r6server
+      - run: GOOS=windows GOARCH=amd64 go build -o stratrec.exe ./cmd/stratrec
+      - run: GOOS=windows GOARCH=amd64 go build -o stratdata.exe ./cmd/stratdata
 
   web:
     runs-on: ubuntu-latest

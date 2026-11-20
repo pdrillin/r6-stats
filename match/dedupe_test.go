@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"testing"
 
-	"github.com/pdrillin/r6-stats/rec"
+	"github.com/pdrillin/stratdata/rec"
 )
 
 // round builds a recording of round n of match id by recorder, whose own

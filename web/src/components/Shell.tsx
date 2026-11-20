@@ -48,7 +48,7 @@ export function Shell({ children }: { children: ReactNode }) {
             <path d="M3 5h14M3 10h14M3 15h14" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
           </svg>
         </button>
-        <span className="mobilebar-title">{space?.name ?? "r6-stats"}</span>
+        <span className="mobilebar-title">{space?.name ?? "Stratdata"}</span>
         {server && (
           <Link to="/upload" className="button primary small">
             Envoyer
@@ -58,7 +58,7 @@ export function Shell({ children }: { children: ReactNode }) {
 
       <aside id="sidebar" className={open ? "sidebar open" : "sidebar"}>
         <Link to={keep("/")} className="brand">
-          r6-stats
+          Stratdata
         </Link>
         {server && space && <SpaceBlock />}
         {server && (

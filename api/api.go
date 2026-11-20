@@ -14,10 +14,10 @@ import (
 	"sync"
 	"time"
 
-	"github.com/pdrillin/r6-stats/match"
-	"github.com/pdrillin/r6-stats/rec"
-	"github.com/pdrillin/r6-stats/stats"
-	"github.com/pdrillin/r6-stats/store"
+	"github.com/pdrillin/stratdata/match"
+	"github.com/pdrillin/stratdata/rec"
+	"github.com/pdrillin/stratdata/stats"
+	"github.com/pdrillin/stratdata/store"
 )
 
 // MatchSummary is one line of the match list.

@@ -43,7 +43,7 @@ function useNarrow(): boolean {
 }
 
 function useShowAll(id?: string): [boolean, (v: boolean) => void] {
-  const key = id && "r6stats.columns." + id;
+  const key = id && "stratdata.columns." + id;
   const [all, setAll] = useState(() => {
     try {
       return !!key && localStorage.getItem(key) === "all";

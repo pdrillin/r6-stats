@@ -3,7 +3,7 @@ package match
 import (
 	"testing"
 
-	"github.com/pdrillin/r6-stats/rec"
+	"github.com/pdrillin/stratdata/rec"
 )
 
 // playerMatch builds a one-round match between two rosters, named as a player's

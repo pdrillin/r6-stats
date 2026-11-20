@@ -59,7 +59,7 @@ function sendBatch(url: string, files: File[], onProgress: (sent: number) => voi
     const xhr = new XMLHttpRequest();
     xhr.open("POST", url);
     // Required by the server: a form posted by another site cannot add it.
-    xhr.setRequestHeader("X-R6-Upload", "1");
+    xhr.setRequestHeader("X-Stratdata-Upload", "1");
     xhr.upload.onprogress = (e) => onProgress(e.loaded);
     xhr.onload = () => {
       if (xhr.status === 200) resolve(JSON.parse(xhr.responseText) as Result[]);

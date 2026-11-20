@@ -3,13 +3,16 @@ Replays/
 *.rec
 
 # Binaires compilés
-/r6rec
-/r6server
+/stratrec
+/stratdata
 *.exe
 /dist/
 
-# Sorties de debug (r6rec dump)
+# Sorties de debug (stratrec dump)
 *.bin
+
+# Réglages locaux du serveur, avec le secret Discord (modèle : .env.example)
+.env
 
 # Éditeurs et OS
 .vscode/
@@ -18,5 +21,6 @@ Replays/
 .DS_Store
 Thumbs.db
 
-# Données du serveur partagé (r6server -data, par défaut r6-data)
+# Données du serveur partagé (stratdata -data, par défaut stratdata-data)
+stratdata-data/
 r6-data/

@@ -8,8 +8,8 @@ import (
 	"path/filepath"
 	"strings"
 
-	"github.com/pdrillin/r6-stats/api"
-	"github.com/pdrillin/r6-stats/match"
+	"github.com/pdrillin/stratdata/api"
+	"github.com/pdrillin/stratdata/match"
 )
 
 // What a user can delete, and what they can take with them (GDPR rights of

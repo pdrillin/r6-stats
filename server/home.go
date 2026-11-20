@@ -13,7 +13,7 @@ var homePage = template.Must(template.New("home").Parse(`<!doctype html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>r6-stats</title>
+<title>Stratdata</title>
 <style>
 :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
 body { max-width: 40rem; margin: 3rem auto; padding: 0 1rem; line-height: 1.5; }
@@ -25,7 +25,7 @@ li { margin: .3rem 0; }
 </style>
 </head>
 <body>
-<h1>r6-stats</h1>
+<h1>Stratdata</h1>
 {{if .User}}
 <p>Connecté en tant que <b>{{.User.Name}}</b>.</p>
 {{if .Spaces}}

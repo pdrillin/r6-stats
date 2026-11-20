@@ -60,8 +60,8 @@ func (d Discord) withDefaults() Discord {
 }
 
 const (
-	sessionCookie = "r6_session"
-	stateCookie   = "r6_oauth_state"
+	sessionCookie = "stratdata_session"
+	stateCookie   = "stratdata_oauth_state"
 )
 
 type userKey struct{}

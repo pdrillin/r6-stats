@@ -74,7 +74,7 @@ func (s *Server) Handler(cfg Config) http.Handler {
 			serverError(w, err)
 			return
 		}
-		w.Header().Set("Content-Disposition", `attachment; filename="r6-stats-mes-donnees.json"`)
+		w.Header().Set("Content-Disposition", `attachment; filename="stratdata-mes-donnees.json"`)
 		writeJSON(w, http.StatusOK, e)
 	}))
 	mux.HandleFunc("DELETE /api/me", s.signedIn(func(w http.ResponseWriter, r *http.Request, u User) {
@@ -318,8 +318,8 @@ func (s *Server) upload(w http.ResponseWriter, r *http.Request, u User, _ Role) 
 	id := r.PathValue("id")
 	// Plain HTML forms can post multipart from any site: require the
 	// header the interface sends, which a form cannot add.
-	if r.Header.Get("X-R6-Upload") != "1" {
-		http.Error(w, "missing X-R6-Upload header", http.StatusForbidden)
+	if r.Header.Get("X-Stratdata-Upload") != "1" {
+		http.Error(w, "missing X-Stratdata-Upload header", http.StatusForbidden)
 		return
 	}
 	if mt, _, _ := mime.ParseMediaType(r.Header.Get("Content-Type")); mt != "multipart/form-data" {

@@ -6,7 +6,7 @@ import { roleLabels, signIn, signOut, spacePath, type Space, type User } from ".
 
 type Me = User & { canCreate: boolean };
 
-/** The start page with r6server: sign in, then the user's spaces. */
+/** The start page with stratdata: sign in, then the user's spaces. */
 export function LobbyPage() {
   const me = useApi<Me>("/me");
   if (me.status === 401) return <SignIn />;
@@ -20,7 +20,7 @@ export function LobbyPage() {
 function SignIn() {
   return (
     <main className="narrow">
-      <h1>r6-stats</h1>
+      <h1>Stratdata</h1>
       <p>
         Les statistiques avancées des matchs de ton équipe, tirées des replays du jeu. Chaque espace est privé : seuls
         ses membres y ont accès.

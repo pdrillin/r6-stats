@@ -13,9 +13,9 @@ export interface Space {
 export type Role = "manager" | "player";
 
 /**
- * Where the pages run. With r6server they run inside a space: API paths are
+ * Where the pages run. With stratdata they run inside a space: API paths are
  * relative to it and the user's role decides what they may change. With
- * r6rec serve there is no space and no account: everything is allowed.
+ * stratrec serve there is no space and no account: everything is allowed.
  */
 export interface Where {
   /** Prefix of the space's API paths, "" without a space. */
@@ -23,9 +23,9 @@ export interface Where {
   space?: Space;
   /** The user may change labels and settings. */
   canEdit: boolean;
-  /** Accounts and spaces exist (r6server). */
+  /** Accounts and spaces exist (stratdata). */
   server: boolean;
-  /** The signed-in user, with r6server. */
+  /** The signed-in user, with stratdata. */
   me?: User;
 }
 

@@ -19,8 +19,8 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/pdrillin/r6-stats/match"
-	"github.com/pdrillin/r6-stats/rec"
+	"github.com/pdrillin/stratdata/match"
+	"github.com/pdrillin/stratdata/rec"
 )
 
 // Cache is a folder of decoded rounds. A nil *Cache decodes every file and
@@ -37,14 +37,14 @@ type entry struct {
 	Round   *rec.Round `json:"round"`
 }
 
-// DefaultDir is the cache folder of the user: %LocalAppData%\r6-stats on
-// Windows, ~/.cache/r6-stats on Linux.
+// DefaultDir is the cache folder of the user: %LocalAppData%\stratdata on
+// Windows, ~/.cache/stratdata on Linux.
 func DefaultDir() (string, error) {
 	base, err := os.UserCacheDir()
 	if err != nil {
 		return "", err
 	}
-	return filepath.Join(base, "r6-stats"), nil
+	return filepath.Join(base, "stratdata"), nil
 }
 
 // Open returns the cache stored in dir, creating the folder if needed.
