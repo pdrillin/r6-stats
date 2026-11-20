@@ -8,14 +8,14 @@
 //
 // The script signs in, creates a space, sends the corpus, follows FaZe, then
 // photographs the pages. Environment: R6_URL (default
-// http://127.0.0.1:8080), R6_REPLAYS (default ../Replays), CHROME (a
+// http://127.0.0.1:8642), R6_REPLAYS (default ../Replays), CHROME (a
 // Chrome or Chromium executable, default /usr/bin/google-chrome).
 
 import { readdir, readFile, mkdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { chromium } from "playwright-core";
 
-const base = process.env.R6_URL ?? "http://127.0.0.1:8080";
+const base = process.env.R6_URL ?? "http://127.0.0.1:8642";
 const replays = resolve(process.env.R6_REPLAYS ?? "../Replays");
 const out = resolve("../docs/screenshots");
 const team = "FAZE";

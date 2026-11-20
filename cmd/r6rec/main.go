@@ -577,7 +577,7 @@ func split(args []string) error {
 
 func serve(args []string) error {
 	fl := flag.NewFlagSet("serve", flag.ExitOnError)
-	addr := fl.String("addr", "127.0.0.1:8080", "address to listen on")
+	addr := fl.String("addr", "127.0.0.1:8642", "address to listen on")
 	web := fl.String("web", "", "folder of the built web interface")
 	data := fl.String("data", "", "file of the user's data: match kinds, own team (default: in the user's config folder)")
 	fl.Parse(args)

@@ -15,7 +15,7 @@ Group=r6-stats
 EnvironmentFile=/etc/r6-stats/r6-stats.env
 # Le serveur n'écoute que sur la machine : Caddy reçoit le trafic HTTPS et le
 # lui transmet.
-ExecStart=/opt/r6-stats/current/r6server -data /var/lib/r6-stats serve -addr 127.0.0.1:8080 -url ${R6_URL} -web /opt/r6-stats/current/web
+ExecStart=/opt/r6-stats/current/r6server -data /var/lib/r6-stats serve -addr 127.0.0.1:8642 -url ${R6_URL} -web /opt/r6-stats/current/web
 Restart=on-failure
 RestartSec=5
 # Laisse le temps de finir un envoi en cours avant l'arrêt.

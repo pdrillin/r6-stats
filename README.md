@@ -72,7 +72,7 @@ go run ./cmd/r6rec round <fichier.rec> # événements d'un round en JSON
 ### Interface web
 
 ```sh
-go run ./cmd/r6rec serve Replays          # API sur http://127.0.0.1:8080
+go run ./cmd/r6rec serve Replays          # API sur http://127.0.0.1:8642
 cd web && npm install && npm run dev      # interface sur http://localhost:5173
 ```
 
@@ -82,7 +82,7 @@ Pour servir l'interface construite directement depuis l'outil (Node n'est alors 
 
 ```sh
 cd web && npm run build && cd ..
-go run ./cmd/r6rec serve -web web/dist Replays   # tout sur http://127.0.0.1:8080
+go run ./cmd/r6rec serve -web web/dist Replays   # tout sur http://127.0.0.1:8642
 ```
 
 Le type de chaque match (pracc ou officiel) et ton équipe se choisissent dans l'interface ; ils sont enregistrés dans un fichier de ton dossier de configuration (`-data` pour en choisir un autre).
@@ -96,7 +96,7 @@ Chaque replay n'est décodé qu'une fois : le résultat est gardé dans le dossi
 ```sh
 go run ./cmd/r6server create "Ma team" team   # affiche l'identifiant de l'espace
 go run ./cmd/r6server import <id> Replays     # envoie les replays d'un dossier
-go run ./cmd/r6server serve                   # API sur http://127.0.0.1:8080
+go run ./cmd/r6server serve                   # API sur http://127.0.0.1:8642
 ```
 
 On s'y connecte avec Discord. Chaque espace a ses responsables (capitaine, coach), qui invitent par lien, et ses joueurs. Un espace n'est visible que de ses membres.
@@ -104,7 +104,7 @@ On s'y connecte avec Discord. Chaque espace a ses responsables (capitaine, coach
 Pour activer la connexion Discord :
 
 1. Sur <https://discord.com/developers/applications>, créer une application (gratuit).
-2. Dans **OAuth2**, ajouter la redirection `http://127.0.0.1:8080/auth/callback` (ou `<adresse du site>/auth/callback` une fois en ligne), puis copier le **Client ID** et le **Client Secret**.
+2. Dans **OAuth2**, ajouter la redirection `http://127.0.0.1:8642/auth/callback` (ou `<adresse du site>/auth/callback` une fois en ligne), puis copier le **Client ID** et le **Client Secret**.
 3. Lancer le serveur avec ces valeurs :
 
 ```sh
@@ -115,7 +115,7 @@ Une page de confidentialité (`/privacy`) explique ce qui est gardé et pourquoi
 
 Pour le mettre en ligne (VPS, HTTPS, sauvegardes) : voir [deploy/README.md](deploy/README.md).
 
-`R6_CREATORS` (identifiants Discord séparés par des virgules) limite la création d'espaces pendant la bêta. Pour essayer sans Discord, sur ta machine seulement : `serve -dev-login`, puis ouvrir `http://127.0.0.1:8080/auth/dev?name=Coach`.
+`R6_CREATORS` (identifiants Discord séparés par des virgules) limite la création d'espaces pendant la bêta. Pour essayer sans Discord, sur ta machine seulement : `serve -dev-login`, puis ouvrir `http://127.0.0.1:8642/auth/dev?name=Coach`.
 
 Sous Windows, les replays sont dans le dossier `MatchReplay` du jeu, avec un sous-dossier par match.
 

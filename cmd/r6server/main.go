@@ -94,7 +94,7 @@ func main() {
 
 func serve(s *server.Server, args []string) error {
 	fl := flag.NewFlagSet("serve", flag.ExitOnError)
-	addr := fl.String("addr", "127.0.0.1:8080", "address to listen on")
+	addr := fl.String("addr", "127.0.0.1:8642", "address to listen on")
 	base := fl.String("url", "", "address users reach the server at (default http://<addr>)")
 	web := fl.String("web", "", "folder of the built web interface")
 	dev := fl.Bool("dev-login", false, "sign in by name without Discord (local machine only)")
@@ -244,7 +244,7 @@ func create(s *server.Server, args []string) error {
 // command line its first manager.
 func invite(s *server.Server, args []string) error {
 	fl := flag.NewFlagSet("invite", flag.ExitOnError)
-	base := fl.String("url", "http://127.0.0.1:8080", "address users reach the server at")
+	base := fl.String("url", "http://127.0.0.1:8642", "address users reach the server at")
 	fl.Parse(args)
 	args = fl.Args()
 	if len(args) < 1 || len(args) > 2 {

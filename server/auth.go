@@ -17,7 +17,7 @@ import (
 // use it.
 type Config struct {
 	// BaseURL is the address users reach the server at, without trailing
-	// slash, e.g. https://stats.example.org or http://localhost:8080. The
+	// slash, e.g. https://stats.example.org or http://localhost:8642. The
 	// Discord redirect URI is BaseURL + "/auth/callback".
 	BaseURL string
 	// Discord is the OAuth2 application used to sign in. Without a client

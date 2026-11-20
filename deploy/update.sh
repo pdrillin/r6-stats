@@ -27,7 +27,7 @@ systemctl restart r6-stats
 
 # Le service doit répondre dans les secondes qui suivent.
 for _ in 1 2 3 4 5 6 7 8 9 10; do
-	if curl -fsS http://127.0.0.1:8080/healthz >/dev/null 2>&1; then
+	if curl -fsS http://127.0.0.1:8642/healthz >/dev/null 2>&1; then
 		echo "$name en service"
 		exit 0
 	fi

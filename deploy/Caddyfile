@@ -21,7 +21,7 @@ stats.example.org {
 		-Server
 	}
 
-	reverse_proxy 127.0.0.1:8080
+	reverse_proxy 127.0.0.1:8642
 
 	log {
 		output file /var/log/caddy/r6-stats.log {

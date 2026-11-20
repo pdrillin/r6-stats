@@ -5,7 +5,7 @@ Ce guide installe r6-stats sur un serveur loué (VPS) sous Debian ou Ubuntu, der
 ```
 Internet ──HTTPS──▶ Caddy (ports 80/443, certificat automatique)
                       │
-                      ▼ 127.0.0.1:8080
+                      ▼ 127.0.0.1:8642
                    r6server (service systemd, utilisateur r6-stats)
                       │
                       ▼
@@ -170,7 +170,7 @@ Les données envoyées entre la mise à jour et le retour en arrière sont alors
 |---|---|
 | Voir si le service tourne | `systemctl status r6-stats` |
 | Lire ses journaux | `journalctl -u r6-stats -f` |
-| Vérifier qu'il répond | `curl http://127.0.0.1:8080/healthz` (renvoie `ok`) |
+| Vérifier qu'il répond | `curl http://127.0.0.1:8642/healthz` (renvoie `ok`) |
 | Lister les espaces | `runuser -u r6-stats -- /opt/r6-stats/current/r6server -data /var/lib/r6-stats spaces` |
 | Lien responsable d'un espace (si plus personne ne peut le gérer) | `runuser -u r6-stats -- /opt/r6-stats/current/r6server -data /var/lib/r6-stats invite -url https://stats.ma-team.fr <id>` |
 | Place occupée | `du -sh /var/lib/r6-stats/*` |

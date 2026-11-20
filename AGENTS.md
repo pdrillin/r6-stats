@@ -102,14 +102,14 @@ go run ./cmd/r6rec split side Replays  # stats par côté (aussi : map, operator
 go run ./cmd/r6rec round <fichier.rec>  # événements décodés d'un round
 go run ./cmd/r6rec header -raw <fichier.rec>
 go run ./cmd/r6rec dump <fichier.rec> <sortie.bin>  # corps décompressé, pour la rétro-ingénierie
-go run ./cmd/r6rec serve Replays     # API JSON sur 127.0.0.1:8080 (-addr, -web web/dist, -data fichier)
+go run ./cmd/r6rec serve Replays     # API JSON sur 127.0.0.1:8642 (-addr, -web web/dist, -data fichier)
 go run ./cmd/r6rec cache info        # emplacement et taille du cache (aussi : clear)
 
 go run ./cmd/r6server create "Ma team" team     # crée un espace, affiche son id (aussi : league)
 go run ./cmd/r6server import <id> Replays       # envoie tous les .rec d'un dossier dans l'espace
 go run ./cmd/r6server spaces                    # liste les espaces
 go run ./cmd/r6server invite <id> [manager|player]  # lien d'invitation (premier responsable d'un espace créé ici)
-go run ./cmd/r6server serve                     # 127.0.0.1:8080 (-addr, -url, -web web/dist, -dev-login)
+go run ./cmd/r6server serve                     # 127.0.0.1:8642 (-addr, -url, -web web/dist, -dev-login)
 go run ./cmd/r6server backup <fichier>          # copie cohérente de la base (VACUUM INTO), serveur en marche
 deploy/build.sh                                 # version à installer : dist/r6-stats-<version>.tar.gz
 # -data <dossier> avant la sous-commande : base et bruts (défaut r6-data)
@@ -123,7 +123,7 @@ Interface web (Node 24, dossier `web/`) :
 
 ```sh
 cd web && npm install
-npm run dev     # http://localhost:5173, /api relayé vers r6rec serve (port 8080, ou R6_API)
+npm run dev     # http://localhost:5173, /api relayé vers r6rec serve (port 8642, ou R6_API)
 npm run build   # vérifie les types puis produit web/dist
 ```
 
