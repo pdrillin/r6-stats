@@ -13,6 +13,7 @@ Replays/
 
 # Éditeurs et OS
 .vscode/
+.claude/
 .idea/
 .DS_Store
 Thumbs.db
