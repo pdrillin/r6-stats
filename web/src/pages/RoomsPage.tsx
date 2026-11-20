@@ -1,15 +1,16 @@
-import { useApi, type Overview, type Room } from "../api";
+import { useApi, type Overview, type Player, type Room } from "../api";
 import { RoomBars } from "../components/charts";
 import { Loading } from "../components/Loading";
 import { useMapFilter } from "../components/MapFilter";
+import { RoomCoverageNote } from "../components/RoomCoverage";
 import { Table } from "../components/Table";
 
 export function RoomsPage() {
   const state = useApi<Overview>("overview");
-  return <Loading state={state}>{(o) => <Rooms rooms={o.stats.rooms ?? []} />}</Loading>;
+  return <Loading state={state}>{(o) => <Rooms rooms={o.stats.rooms ?? []} players={o.stats.players} />}</Loading>;
 }
 
-function Rooms({ rooms }: { rooms: Room[] }) {
+function Rooms({ rooms, players }: { rooms: Room[]; players: Player[] }) {
   const maps = [...new Set(rooms.map((r) => r.map))].sort();
   // Rooms only make sense on one map: the tabs set the map filter, and
   // without one the first map is shown.
@@ -22,6 +23,15 @@ function Rooms({ rooms }: { rooms: Room[] }) {
       <p className="muted">
         Kills comptés dans la pièce du tueur, morts dans celle de la victime, séparés selon le côté du joueur.
       </p>
+      <RoomCoverageNote players={players} />
+      {maps.length > 0 && <RoomTabs maps={maps} map={map} setMap={setMap} rows={rows} />}
+    </>
+  );
+}
+
+function RoomTabs({ maps, map, setMap, rows }: { maps: string[]; map: string; setMap: (m: string) => void; rows: Room[] }) {
+  return (
+    <>
       <div className="tabs">
         {maps.map((m) => (
           <button key={m} className={m === map ? "active" : undefined} onClick={() => setMap(m)}>

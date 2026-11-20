@@ -5,6 +5,7 @@ import { Loading } from "../components/Loading";
 import { FLink, MapFilter, scope, useMapFilter, useMatchFilter, useOverview } from "../components/MapFilter";
 import { clutchTotal, playerPath, teamPath } from "../components/PlayerTable";
 import { RateBars } from "../components/RateBars";
+import { RoomCoverageNote, roomCoverage } from "../components/RoomCoverage";
 import { Table } from "../components/Table";
 import { Ratio, RecCount, RecRatio, date, rate } from "../format";
 import { results, useMyTeam } from "../team";
@@ -174,16 +175,19 @@ function Scout({ o, t, matches }: { o: Overview; t: Team; matches: MatchSummary[
       {o.map ? (
         <>
           <h2>Pièces sur {o.map}</h2>
-          <div className="two-cols">
-            <section>
-              <h3>Où ils tuent</h3>
-              <RoomList players={players} get={(p) => p.killRooms} />
-            </section>
-            <section>
-              <h3>Où ils meurent</h3>
-              <RoomList players={players} get={(p) => p.deathRooms} />
-            </section>
-          </div>
+          <RoomCoverageNote players={players} />
+          {roomCoverage(players).known > 0 && (
+            <div className="two-cols">
+              <section>
+                <h3>Où ils tuent</h3>
+                <RoomList players={players} get={(p) => p.killRooms} />
+              </section>
+              <section>
+                <h3>Où ils meurent</h3>
+                <RoomList players={players} get={(p) => p.deathRooms} />
+              </section>
+            </div>
+          )}
         </>
       ) : (
         <p className="muted">Choisir une map pour voir les pièces où ils tuent et meurent.</p>

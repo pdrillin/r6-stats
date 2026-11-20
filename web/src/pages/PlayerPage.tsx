@@ -6,6 +6,7 @@ import { TimingChart } from "../components/charts";
 import { Loading } from "../components/Loading";
 import { FLink, MapFilter, filterSearch, scope, useOverview } from "../components/MapFilter";
 import { teamPath } from "../components/PlayerTable";
+import { RoomCoverageNote, roomCoverage } from "../components/RoomCoverage";
 import { Table } from "../components/Table";
 import { Ratio, RecCount, diff, sideLabel } from "../format";
 
@@ -110,7 +111,8 @@ function PlayerView({ p, filter }: { p: Player; filter: ReactNode }) {
 
       <h2>Pièces</h2>
       <p className="muted">Kills comptés dans la pièce où se trouvait le joueur, morts dans celle où il est tombé.</p>
-      <RoomTable p={p} />
+      <RoomCoverageNote players={[p]} />
+      {roomCoverage([p]).known > 0 && <RoomTable p={p} />}
     </>
   );
 }
