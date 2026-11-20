@@ -82,6 +82,9 @@ func sideOf(alliance string) Side {
 type Team struct {
 	Name          string `json:"name"`
 	StartingScore int    `json:"startingScore"` // score before this round is played
+	// Score after this round, written by the game since Y11S3; nil in
+	// older replays.
+	Score *int `json:"score,omitempty"`
 }
 
 // Header is the decoded property block of one round file.
@@ -118,10 +121,18 @@ type Chunk struct {
 	Size           int // decompressed size
 }
 
+// CustomGame reports whether the round comes from a custom game: a pracc
+// or an official match, recorded by a player ("4") or a spectator ("3").
+// Ranked, unranked, quick matches ("2", "1") and arcade modes ("13") are
+// played with strangers, and arcade is not even played for the bomb.
+func (h *Header) CustomGame() bool {
+	return h.MatchType == "3" || h.MatchType == "4"
+}
+
 // Version identifies what this package decodes. Results cached from a
 // different version are decoded again, so bump it whenever a change alters
 // what Header or Round hold for a file.
-const Version = 1
+const Version = 2
 
 // File is a parsed round file. The body stays compressed until read.
 type File struct {
@@ -318,6 +329,10 @@ func buildHeader(props []Property) Header {
 			h.Teams[0].StartingScore = atoi(p.Value)
 		case "startingteamscore1":
 			h.Teams[1].StartingScore = atoi(p.Value)
+		case "teamscore0", "teamscore1":
+			if n, err := strconv.Atoi(p.Value); err == nil {
+				h.Teams[p.Key[len(p.Key)-1]-'0'].Score = &n
+			}
 		}
 	}
 	return h

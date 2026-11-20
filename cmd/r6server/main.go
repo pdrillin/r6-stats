@@ -361,7 +361,7 @@ func importDirs(s *server.Server, args []string) error {
 			log.Printf("%s: %s", p, res.Error)
 		}
 	}
-	fmt.Printf("%d added, %d already in the space, %d invalid\n",
-		counts[server.Added], counts[server.Already], counts[server.Invalid])
+	fmt.Printf("%d added, %d already in the space, %d ignored (not custom games), %d invalid\n",
+		counts[server.Added], counts[server.Already], counts[server.Ignored], counts[server.Invalid])
 	return nil
 }

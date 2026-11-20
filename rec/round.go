@@ -29,9 +29,9 @@ const (
 	// Kill feed entry object.
 	keyFeedEntry  = 0x5934e58b // u32, first property of every feed entry
 	keyKiller     = 0xd9133cba // string
-	keyKillerTeam = 0xc198de70 // u32, team index + 1
+	keyKillerTeam = 0xc198de70 // u32, team + 1 (see alignFeedTeams)
 	keyVictim     = 0xac190f70 // string
-	keyVictimTeam = 0x782e7b50 // u32, team index + 1
+	keyVictimTeam = 0x782e7b50 // u32, team + 1 (see alignFeedTeams)
 	keyHeadshot   = 0xc35ba44e // bool
 
 	// HUD label objects. The same key holds room names (player locations,
@@ -162,6 +162,7 @@ func decodeRound(h *Header, body []byte) *Round {
 		r.End = clockAt(endOff)
 	}
 	kills, offs := readKills(body, clockAt)
+	alignFeedTeams(h, kills)
 	r.Kills = kills
 	r.Site = readSite(body)
 
@@ -202,6 +203,11 @@ func decodeRound(h *Header, body []byte) *Round {
 		k.VictimRoom = tr.roomAt(k.Victim, offs[i], end)
 	}
 	r.Winner, r.WinReason = decideWinner(h, r)
+	// The score the game wrote settles rounds the rules cannot (a forfeit,
+	// a recording cut short) and overrides them.
+	if w := h.scoredWinner(); w >= 0 && w != r.Winner {
+		r.Winner, r.WinReason = w, ""
+	}
 	if r.WinReason == DefuserDisabled {
 		defenders := map[string]bool{}
 		for _, p := range h.Players {
@@ -405,6 +411,46 @@ func readKills(body []byte, clockAt func(off int) Clock) ([]Kill, []int) {
 	return kills, offs
 }
 
+// alignFeedTeams makes the teams of the kill feed header team indices. A
+// spectator's replay numbers the teams as the header does, but a player's
+// numbers them from the recording player's point of view: their own team is
+// always 0, whatever its index in the header. The players named in the feed
+// tell which numbering the replay uses.
+func alignFeedTeams(h *Header, kills []Kill) {
+	team := map[string]int{}
+	for _, p := range h.Players {
+		team[p.Name] = p.Team
+	}
+	same, swapped := 0, 0
+	vote := func(name string, feed int) {
+		t, ok := team[name]
+		switch {
+		case !ok || name == "" || feed < 0 || feed > 1:
+		case t == feed:
+			same++
+		case t == 1-feed:
+			swapped++
+		}
+	}
+	for _, k := range kills {
+		vote(k.Killer, k.KillerTeam)
+		vote(k.Victim, k.VictimTeam)
+	}
+	if swapped <= same {
+		return
+	}
+	flip := func(t int) int {
+		if t == 0 || t == 1 {
+			return 1 - t
+		}
+		return t
+	}
+	for i := range kills {
+		kills[i].KillerTeam = flip(kills[i].KillerTeam)
+		kills[i].VictimTeam = flip(kills[i].VictimTeam)
+	}
+}
+
 // readProps calls fn for each property of the update whose first key starts
 // at pos. Indexed properties are reported without their index.
 func readProps(b []byte, pos int, fn func(key uint32, val []byte)) {
@@ -446,6 +492,22 @@ func readProps(b []byte, pos int, fn func(key uint32, val []byte)) {
 
 // decideWinner applies the bomb rules to what was observed. The replay does
 // carry the outcome somewhere, but it is not located yet.
+// scoredWinner returns the team whose score went up by one in the round
+// according to the header, or -1 when the header does not say.
+func (h *Header) scoredWinner() int {
+	a, b := h.Teams[0], h.Teams[1]
+	if a.Score == nil || b.Score == nil {
+		return -1
+	}
+	switch d0, d1 := *a.Score-a.StartingScore, *b.Score-b.StartingScore; {
+	case d0 == 1 && d1 == 0:
+		return 0
+	case d0 == 0 && d1 == 1:
+		return 1
+	}
+	return -1
+}
+
 func decideWinner(h *Header, r *Round) (int, WinReason) {
 	if !r.Complete {
 		return -1, ""

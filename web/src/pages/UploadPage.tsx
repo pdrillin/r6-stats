@@ -6,7 +6,7 @@ import { useWhere } from "../space";
 interface Result {
   name: string;
   sha256?: string;
-  status: "added" | "already" | "invalid";
+  status: "added" | "already" | "ignored" | "invalid";
   error?: string;
 }
 
@@ -133,7 +133,8 @@ export function UploadPage() {
       <p className="muted">
         Les replays sont dans <code>Documents\My Games\Rainbow Six - Siege\&lt;ton identifiant&gt;\MatchReplay</code>, un
         dossier par match. Glisse un ou plusieurs dossiers de match, ou tout le dossier <code>MatchReplay</code> : les
-        matchs déjà envoyés sont reconnus et ignorés.
+        matchs déjà envoyés sont reconnus et ignorés. Seules les parties personnalisées (praccs, matchs officiels) sont
+        gardées : les ranked, parties rapides et arcades sont écartées sans être stockées.
       </p>
 
       <div
@@ -193,6 +194,11 @@ export function UploadPage() {
             <p>
               <b>{count("added")}</b> round{count("added") > 1 ? "s" : ""} ajouté{count("added") > 1 ? "s" : ""}
               {count("already") > 0 && <>, {count("already")} déjà présent{count("already") > 1 ? "s" : ""}</>}
+              {count("ignored") > 0 && (
+                <>
+                  , {count("ignored")} écarté{count("ignored") > 1 ? "s" : ""} (ranked, partie rapide ou arcade)
+                </>
+              )}
               {count("invalid") > 0 && <>, {count("invalid")} illisible{count("invalid") > 1 ? "s" : ""}</>}
               {ignored > 0 && (
                 <span className="muted">

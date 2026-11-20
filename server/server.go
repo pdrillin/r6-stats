@@ -186,6 +186,7 @@ const (
 	Added   Status = "added"   // new in the space
 	Already Status = "already" // the space already held it
 	Invalid Status = "invalid" // not a replay, or one that cannot be decoded
+	Ignored Status = "ignored" // a replay of a game spaces do not keep (ranked, arcade…)
 )
 
 // Result is the outcome of one upload.
@@ -225,6 +226,19 @@ func (s *Server) Add(spaceID string, u Upload) (Result, error) {
 	}
 	sum := sha256.Sum256(u.Data)
 	res.SHA256 = hex.EncodeToString(sum[:])
+
+	// Matchmade games are played with strangers: they would blur a team's
+	// statistics and expose people who never joined the space, so they are
+	// not stored at all.
+	f, err := rec.Parse(u.Data)
+	if err != nil {
+		res.Status, res.Error = Invalid, err.Error()
+		return res, nil
+	}
+	if !f.Header.CustomGame() {
+		res.Status, res.Error = Ignored, "not a custom game"
+		return res, nil
+	}
 
 	// Decode first: nothing is stored for a file that is not a replay.
 	version, err := s.roundVersion(res.SHA256)

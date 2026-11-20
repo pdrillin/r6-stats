@@ -57,7 +57,8 @@ export function PrivacyPage() {
             <tr>
               <td className="text">
                 Les replays envoyés et ce qui en est extrait : pseudos des 10 joueurs du match, opérateurs, kills,
-                positions par pièce, scores
+                positions par pièce, scores. Seules les parties personnalisées (praccs, matchs officiels) sont gardées :
+                un replay de ranked, de partie rapide ou d'arcade est écarté à l'envoi, sans être stocké
               </td>
               <td className="text">Calculer les statistiques de l'espace</td>
               <td className="text">
