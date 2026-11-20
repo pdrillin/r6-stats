@@ -802,6 +802,53 @@ func TestDeleteMatchAndSpace(t *testing.T) {
 	}
 }
 
+func TestClearSpace(t *testing.T) {
+	files := chalet(t)
+	dir := t.TempDir()
+	s := open(t, dir)
+	cfg := Config{BaseURL: testURL}
+	alice := newClient(t, s, cfg, "alice")
+	bob := newClient(t, s, cfg, "bob")
+	a := alice.createSpace("A")
+	alice.upload(a.ID, files)
+	var inv struct{ Invitation }
+	alice.send("POST", "/api/spaces/"+a.ID+"/invitations", `{"role":"player"}`, &inv)
+	bob.send("POST", "/api/invitations/"+inv.Token+"/accept", ``, nil)
+	var list []api.MatchSummary
+	alice.get("/api/spaces/"+a.ID+"/matches", &list)
+	alice.send("PUT", "/api/spaces/"+a.ID+"/matches/"+list[0].ID+"/kind", `{"kind":"official"}`, nil)
+	alice.send("PUT", "/api/spaces/"+a.ID+"/settings", `{"myTeam":"GK"}`, nil)
+
+	if code := bob.send("DELETE", "/api/spaces/"+a.ID+"/matches", ``, nil); code != http.StatusForbidden {
+		t.Errorf("player empties the space: %d", code)
+	}
+	var res struct{ Replays int }
+	if code := alice.send("DELETE", "/api/spaces/"+a.ID+"/matches", ``, &res); code != 200 || res.Replays != len(files) {
+		t.Fatalf("empty the space: %d %+v", code, res)
+	}
+	if alice.get("/api/spaces/"+a.ID+"/matches", &list); len(list) != 0 {
+		t.Errorf("%d matches left", len(list))
+	}
+	for _, table := range []string{"replay_files", "rounds", "match_kinds"} {
+		if n := count(t, s, "SELECT COUNT(*) FROM "+table); n != 0 {
+			t.Errorf("%d rows left in %s", n, table)
+		}
+	}
+	if n := rawFiles(t, dir); n != 0 {
+		t.Errorf("%d raw files left", n)
+	}
+	// The space, its members and its settings stay.
+	var settings api.Settings
+	if code := bob.get("/api/spaces/"+a.ID+"/settings", &settings); code != 200 || settings.MyTeam != "GK" {
+		t.Errorf("after emptying: %d %+v", code, settings)
+	}
+	// Sending the replays again brings the match back.
+	alice.upload(a.ID, files)
+	if alice.get("/api/spaces/"+a.ID+"/matches", &list); len(list) != 1 {
+		t.Errorf("%d matches after sending again", len(list))
+	}
+}
+
 func TestDeleteAccount(t *testing.T) {
 	s := open(t, t.TempDir())
 	cfg := Config{BaseURL: testURL, Operator: "Pierre", Contact: "contact@example.org"}

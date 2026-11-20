@@ -29,6 +29,7 @@ export function MembersPage() {
       </p>
       <Loading state={members}>{(list) => <MemberList list={list} me={me} canEdit={canEdit} />}</Loading>
       {canEdit && <Invitations />}
+      {canEdit && <ClearSpace />}
       {canEdit && <DeleteSpace ready={members.data !== undefined} />}
     </>
   );
@@ -36,6 +37,56 @@ export function MembersPage() {
 
 /** The Members page's anchor for the deletion form; the space list links to it. */
 export const DELETE_ANCHOR = "supprimer";
+
+/**
+ * Removes every match of the space for all its members, the space itself
+ * staying: a fresh start, for instance after test uploads. Confirmed by
+ * typing the space's name, like deleting it.
+ */
+function ClearSpace() {
+  const { space } = useWhere();
+  const send = useSend();
+  const [typed, setTyped] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [done, setDone] = useState<number>();
+  const [error, setError] = useState<string>();
+  if (!space) return null;
+  const clear = async () => {
+    setBusy(true);
+    setError(undefined);
+    try {
+      const res = await send<{ replays: number }>("DELETE", "matches");
+      setDone(res.replays);
+      setTyped("");
+    } catch (err) {
+      setError(String(err));
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <section className="danger-zone">
+      <h2>Vider l'espace</h2>
+      <p className="muted">
+        Retire tous les matchs de l'espace, pour tous ses membres : leurs statistiques disparaissent. Les membres, les
+        invitations, l'équipe choisie et les noms donnés aux équipes restent, et s'appliqueront aux replays envoyés
+        ensuite. Pour confirmer, écris le nom de l'espace : <b>{space.name}</b>
+      </p>
+      <div className="filters">
+        <input value={typed} onChange={(e) => setTyped(e.target.value)} aria-label="Nom de l'espace à vider" />
+        <button className="button danger" disabled={busy || typed !== space.name} onClick={clear}>
+          Vider l'espace
+        </button>
+      </div>
+      {done !== undefined && (
+        <p role="status">
+          Espace vidé : {done} replay{done > 1 ? "s" : ""} retiré{done > 1 ? "s" : ""}.
+        </p>
+      )}
+      {error && <p className="error">{error}</p>}
+    </section>
+  );
+}
 
 /**
  * Deletes the whole space, for managers: typing its name confirms. Reached

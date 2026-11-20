@@ -42,6 +42,7 @@ const MaxFilesPerUpload = 64
 //	POST   /api/spaces/{id}/invitations           {"role"}           manager
 //	DELETE /api/spaces/{id}/invitations/{inv}                        manager
 //	DELETE /api/spaces/{id}/matches/{match}       manager
+//	DELETE /api/spaces/{id}/matches               manager: every match, the space stays
 //	DELETE /api/spaces/{id}                       manager
 //	       /api/spaces/{id}/…                     statistics (package api); writes: manager
 func (s *Server) Handler(cfg Config) http.Handler {
@@ -202,6 +203,16 @@ func (s *Server) Handler(cfg Config) http.Handler {
 	}))
 	mux.HandleFunc("DELETE /api/spaces/{id}/matches/{match}", s.inSpace(Manager, func(w http.ResponseWriter, r *http.Request, u User, role Role) {
 		memberError(w, s.DeleteMatch(r.PathValue("id"), r.PathValue("match")))
+	}))
+	mux.HandleFunc("DELETE /api/spaces/{id}/matches", s.inSpace(Manager, func(w http.ResponseWriter, r *http.Request, u User, role Role) {
+		n, err := s.ClearSpace(r.PathValue("id"))
+		if err != nil {
+			memberError(w, err)
+			return
+		}
+		writeJSON(w, http.StatusOK, struct {
+			Replays int `json:"replays"`
+		}{n})
 	}))
 	mux.HandleFunc("DELETE /api/spaces/{id}", s.inSpace(Manager, func(w http.ResponseWriter, r *http.Request, u User, role Role) {
 		memberError(w, s.DeleteSpace(r.PathValue("id")))

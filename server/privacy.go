@@ -68,6 +68,40 @@ func (s *Server) DeleteMatch(spaceID, matchID string) error {
 	return nil
 }
 
+// ClearSpace removes every match of a space and their labels, and returns
+// how many replays it held. Members, invitations, the own team and the
+// team names stay: they apply again to replays sent afterwards.
+func (s *Server) ClearSpace(spaceID string) (int, error) {
+	if ok, err := s.spaceExists(spaceID); err != nil {
+		return 0, err
+	} else if !ok {
+		return 0, ErrNotFound
+	}
+	tx, err := s.db.Begin()
+	if err != nil {
+		return 0, err
+	}
+	defer tx.Rollback()
+	r, err := tx.Exec("DELETE FROM space_files WHERE space_id = ?", spaceID)
+	if err != nil {
+		return 0, err
+	}
+	n, _ := r.RowsAffected()
+	if _, err := tx.Exec("DELETE FROM match_kinds WHERE space_id = ?", spaceID); err != nil {
+		return 0, err
+	}
+	raw, err := collect(tx)
+	if err != nil {
+		return 0, err
+	}
+	if err := tx.Commit(); err != nil {
+		return 0, err
+	}
+	s.removeRaw(raw)
+	s.forget(spaceID)
+	return int(n), nil
+}
+
 // DeleteSpace removes a space with everything only it held.
 func (s *Server) DeleteSpace(spaceID string) error {
 	tx, err := s.db.Begin()

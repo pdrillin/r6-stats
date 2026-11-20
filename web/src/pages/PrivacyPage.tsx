@@ -62,7 +62,7 @@ export function PrivacyPage() {
               </td>
               <td className="text">Calculer les statistiques de l'espace</td>
               <td className="text">
-                Jusqu'à la suppression du match ou de l'espace. Le fichier de replay brut peut être supprimé plus tôt :
+                Jusqu'à la suppression du match, le vidage de l'espace ou sa suppression. Le fichier de replay brut peut être supprimé plus tôt :
                 les statistiques n'en ont pas besoin
               </td>
             </tr>
@@ -130,8 +130,8 @@ export function PrivacyPage() {
           <b>Rectification</b> : ton pseudo et ton avatar sont repris de Discord à chaque connexion.
         </li>
         <li>
-          <b>Effacement</b> : supprime ton compte depuis « Mon compte ». Un responsable d'espace peut supprimer un match
-          ou tout l'espace.
+          <b>Effacement</b> : supprime ton compte depuis « Mon compte ». Un responsable d'espace peut supprimer un match,
+          tous les matchs de l'espace ou tout l'espace.
         </li>
         <li>
           <b>Opposition, et données de joueurs sans compte</b> : si tu apparais dans un replay envoyé par une autre
