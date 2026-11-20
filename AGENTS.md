@@ -152,7 +152,7 @@ Organisation : `Replays/<série>/<n> - <map>/Match-<date>-<id>/Match-...-RNN.rec
 | `rec/` | Format de fichier : en-tête (`rec.go`), identifiants de maps (`maps.go`), événements du corps et vainqueur du round (`round.go`) |
 | `cache/` | Cache des rounds décodés, un fichier JSON par replay, clé = SHA-256 du fichier ; décodage en parallèle (6 au plus : chacun tient un corps décompressé) |
 | `store/` | Données saisies par l'utilisateur (type de chaque match, « mon équipe ») : un fichier JSON réécrit en entier, de façon atomique, à chaque changement. `%AppData%\r6-stats\data.json` sous Windows, `~/.config/r6-stats/data.json` sous Linux. Distinct du cache, qu'on peut vider sans rien perdre |
-| `match/` | Regroupe les rounds en matchs (parties personnalisées seulement), gère les rehosts ; un match enregistré par plusieurs joueurs ne compte qu'une fois (`dedupe` : les rounds du joueur qui en a le plus de complets, complétés par ceux d'un coéquipier, jamais par ceux d'un adversaire dont les noms d'équipe sont inversés) ; `Roster` complète une équipe manquante |
+| `match/` | Regroupe les rounds en matchs (parties personnalisées seulement), gère les rehosts ; `NameTeams` nomme les équipes (voir « Noms d'équipe ») ; un match enregistré par plusieurs joueurs ne compte qu'une fois (`dedupe` : les rounds du joueur qui en a le plus de complets, complétés par ceux d'un coéquipier, jamais par ceux d'un adversaire dont les noms d'équipe sont inversés) ; `Roster` complète une équipe manquante |
 | `stats/` | Duels d'ouverture, trades, clutches, conversion des avantages numériques |
 | `api/` | API JSON pour l'interface, celle de `r6rec serve` et celle de chaque espace du serveur (`api.Store` : fichier local ou base du serveur). Lecture : `/api/overview` (`?map=`, `?kind=` ; calculée à la demande, gardée en mémoire, oubliée quand un type de match change), `/api/matches`, `/api/matches/{id}`, `/api/settings`. Écriture : `PUT /api/matches/{id}/kind`, `PUT /api/settings`, en JSON uniquement (un autre site ne peut pas envoyer de JSON au serveur local via le navigateur sans préflight, jamais accepté) ; sert aussi l'interface construite (repli sur `index.html` pour les routes de la SPA) |
 | `server/` | Serveur partagé. `auth.go` : connexion Discord (OAuth2, permission `identify` seule, jeton Discord jamais gardé, `state` lié au navigateur par un cookie), session = cookie aléatoire `HttpOnly` `SameSite=Lax` dont la base ne garde que le SHA-256, refus des modifications venant d'un autre site (`Sec-Fetch-Site`, `Origin`). `members.go` : utilisateurs, rôles (`manager` : invite, retire, change les rôles, étiquette les matchs, choisit « mon équipe » ; `player` : envoie et consulte), un espace garde toujours un responsable, invitations par lien (7 jours, plusieurs usages, révocables, seule l'empreinte est gardée). `http.go` : toutes les règles d'accès ; un non-membre reçoit 404 pour ne pas révéler l'existence de l'espace. `home.go` : page d'accueil minimale servie à `/` quand `-web` n'est pas donné (utilisateur connecté, ses espaces, connexion et déconnexion), pour ne jamais atterrir sur un 404 après la connexion Discord. Espaces, réception des replays (`Add` : décodé une fois, lié à l'espace, doublons repérés par SHA-256), base SQLite (`db.go`, migrations par `PRAGMA user_version` : ne jamais modifier une migration publiée, en ajouter une), bruts dans `raw/aa/bb/<sha256>.rec`, un bloc zstd JSON par round (en-tête complet compris), vue de chaque espace = un `api.Server` construit à la demande et oublié quand l'espace change, `Redecode` au démarrage pour les rounds d'un ancien parser. Routes : voir le commentaire de `Server.Handler` (connexion, `/api/me`, espaces, invitations, membres, envoi en multipart avec l'en-tête `X-R6-Upload: 1`, API de l'espace sous `/api/spaces/{id}/…`) |
@@ -227,6 +227,15 @@ Entiers en little-endian sauf mention contraire.
 - Rehosts : même map et mêmes équipes ; un numéro de round répété remplace l'enregistrement précédent (incomplet). Certains fichiers d'après rehost ne listent qu'une équipe dans l'en-tête ; `match.Roster` reprend l'autre équipe d'un round voisin.
 - Les clés et la structure changeront d'une saison à l'autre. Plan : aiguiller selon `version`/`code`, garder un corpus de test par saison, signaler les matchs qui échouent aux contrôles de cohérence plutôt que d'afficher des stats fausses.
 
+## Noms d'équipe (`match/naming.go`)
+
+Les replays enregistrés en joueur appellent les équipes « YOUR TEAM » et « ENEMY TEAM » : sans traitement, tous les adversaires seraient une seule équipe. `NameTeams`, appliqué par l'API avant tout calcul :
+
+- **Reconnaître** : deux équipes de deux matchs qui ont au moins `SameTeam` (3) joueurs en commun (profile id, `PlayerID`) sont la même. Les noms écrits par un replay spectateur (vrais noms) regroupent par nom, sans regarder les joueurs.
+- **Nommer**, dans l'ordre : un nom donné par un responsable (`Alias` : nom + joueurs, appliqué à toute équipe qui en partage 3, y compris dans les matchs futurs) ; le nom du replay s'il n'est pas générique ; le tag de clan évident (au moins 3 pseudos `xxx.TAG` avec le même tag, sans égalité) ; sinon le nom générique et le joueur le plus présent (« ENEMY TEAM · salva.Alone »). `Overview.teamNamedBy` dit d'où vient chaque nom.
+- **Renommer** : `PUT /api/teams/name` `{"team": nom actuel, "name": nouveau}` (responsables), nom vide = retour au nom automatique. « Mon équipe » suit le renommage. Stocké dans `data.json` (`teamNames`) ou la colonne `spaces.team_names` (JSON). Interface : page d'une équipe (`components/TeamName.tsx`).
+- Limite : un adversaire qui change 3 joueurs d'un match à l'autre devient une autre équipe.
+
 ## Définitions des stats (`stats/`)
 
 - Ouverture : premier kill du round. Un team kill en premier compte comme première mort pour cette équipe et comme premier kill pour personne.
@@ -243,7 +252,7 @@ Entiers en little-endian sauf mention contraire.
 ## Prochaines étapes
 
 1. **Replays de l'équipe de l'utilisateur** (examinés en novembre 2026, Y11S3 : 4 praccs et beaucoup de ranked, voir « Format de fichier »). Restent :
-   - nommer l'adversaire (tous s'appellent « ENEMY TEAM », donc fusionnés) : tag commun des pseudos, ou nom saisi par un responsable ;
+   - fait : nommer l'adversaire (voir « Noms d'équipe ») ;
    - reconnaître « nous » par les profile ids des joueurs de l'équipe ;
    - faits : seules les parties personnalisées sont gardées, et un match envoyé par plusieurs membres ne compte qu'une fois (`match.dedupe`, testé sur des rounds synthétiques faute de deux enregistrements réels du même match).
 2. **Fait** : cache des rounds décodés et stockage local (`r6rec serve`), qui servent de base au serveur.

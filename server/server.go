@@ -529,3 +529,24 @@ func (st spaceStore) SetMyTeam(team string) error {
 	_, err := st.db.Exec("UPDATE spaces SET my_team = ? WHERE id = ?", team, st.id)
 	return err
 }
+
+func (st spaceStore) TeamNames() []match.Alias {
+	var raw string
+	var names []match.Alias
+	if err := st.db.QueryRow("SELECT team_names FROM spaces WHERE id = ?", st.id).Scan(&raw); err == nil {
+		json.Unmarshal([]byte(raw), &names)
+	}
+	return names
+}
+
+func (st spaceStore) SetTeamNames(names []match.Alias) error {
+	if names == nil {
+		names = []match.Alias{}
+	}
+	raw, err := json.Marshal(names)
+	if err != nil {
+		return err
+	}
+	_, err = st.db.Exec("UPDATE spaces SET team_names = ? WHERE id = ?", string(raw), st.id)
+	return err
+}

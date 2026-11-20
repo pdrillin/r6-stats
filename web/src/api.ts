@@ -121,7 +121,16 @@ export interface Overview {
   tradeWindowMs: number;
   /** The side each operator plays. */
   operatorSides: Record<string, "attack" | "defense">;
+  /** Where each team name comes from. */
+  teamNamedBy?: Record<string, TeamNamedBy>;
 }
+
+/**
+ * Where a team name comes from: the replay (spectator recordings), the clan
+ * tag of its players, a generic name and its most present player, or a
+ * manager.
+ */
+export type TeamNamedBy = "replay" | "tag" | "player" | "manager";
 
 /** What a match was played for, as the user labelled it. */
 export type MatchKind = "pracc" | "official";

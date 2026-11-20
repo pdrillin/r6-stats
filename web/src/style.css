@@ -1039,6 +1039,15 @@ main.narrow {
   color: inherit;
   outline: none;
 }
+.team-name {
+  margin-bottom: 1rem;
+}
+.team-name p {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem;
+}
 .create-space {
   margin-top: 2rem;
 }

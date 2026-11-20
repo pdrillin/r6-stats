@@ -11,6 +11,8 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+
+	"github.com/pdrillin/r6-stats/match"
 )
 
 // Kind is what a match was played for. Pracc and official matches are both
@@ -35,6 +37,8 @@ type Data struct {
 	MyTeam string `json:"myTeam"`
 	// Kinds holds the kind of the matches the user labelled, by match id.
 	Kinds map[string]Kind `json:"kinds"`
+	// TeamNames are the names the user gave to teams.
+	TeamNames []match.Alias `json:"teamNames,omitempty"`
 }
 
 // Store is the user's data, kept in a file.
@@ -99,6 +103,26 @@ func (s *Store) SetMyTeam(team string) error {
 	s.data.MyTeam = team
 	if err := s.save(); err != nil {
 		s.data.MyTeam = old
+		return err
+	}
+	return nil
+}
+
+// TeamNames returns the names the user gave to teams.
+func (s *Store) TeamNames() []match.Alias {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return append([]match.Alias(nil), s.data.TeamNames...)
+}
+
+// SetTeamNames replaces the names the user gave to teams.
+func (s *Store) SetTeamNames(names []match.Alias) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	old := s.data.TeamNames
+	s.data.TeamNames = names
+	if err := s.save(); err != nil {
+		s.data.TeamNames = old
 		return err
 	}
 	return nil

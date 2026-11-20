@@ -67,6 +67,14 @@ export function PrivacyPage() {
               </td>
             </tr>
             <tr>
+              <td className="text">
+                Les noms donnés aux équipes par un responsable, avec les identifiants Ubisoft de leurs joueurs (pour
+                reconnaître l'équipe dans les matchs suivants)
+              </td>
+              <td className="text">Nommer les adversaires, que les replays de joueur appellent tous « ENEMY TEAM »</td>
+              <td className="text">Jusqu'au retour au nom automatique ou à la suppression de l'espace</td>
+            </tr>
+            <tr>
               <td className="text">Un cookie de session, et un cookie de quelques minutes pendant la connexion</td>
               <td className="text">Rester connecté</td>
               <td className="text">30 jours, ou jusqu'à la déconnexion</td>

@@ -284,13 +284,8 @@ func (c *collector) team(name string) *Team {
 	return t
 }
 
-const noProfile = "00000000-0000-0000-0000-000000000000"
-
 func (c *collector) player(p rec.Player, team string) *Player {
-	key := p.ProfileID
-	if key == "" || key == noProfile {
-		key = "name:" + p.Name
-	}
+	key := match.PlayerID(p)
 	pl := c.players[key]
 	if pl == nil {
 		pl = &Player{ID: key, Name: p.Name, Team: team, Clutches: map[int]*Record{},

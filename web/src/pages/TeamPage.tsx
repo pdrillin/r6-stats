@@ -7,6 +7,7 @@ import { FLink, MapFilter, scope, useOverview } from "../components/MapFilter";
 import { scoutPath } from "../team";
 import { PlayerTable } from "../components/PlayerTable";
 import { Table } from "../components/Table";
+import { TeamName } from "../components/TeamName";
 import { RecRatio, rate, sideLabel } from "../format";
 import { Situations } from "./TeamsPage";
 
@@ -41,6 +42,7 @@ function TeamView({ t, o }: { t: Team; o: Overview }) {
           <RecRatio r={t.rounds} /> rounds gagnés
         </span>
       </h1>
+      <TeamName key={t.name} name={t.name} by={o.teamNamedBy?.[t.name]} />
       <MapFilter maps={o.maps} />
       <p>
         <FLink to={scoutPath(t.name)}>Fiche adversaire : préparer un match contre {t.name} →</FLink>

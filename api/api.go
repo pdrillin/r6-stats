@@ -3,6 +3,7 @@ package api
 
 import (
 	"encoding/json"
+	"errors"
 	"io"
 	"net/http"
 	"os"
@@ -89,6 +90,8 @@ type Overview struct {
 	// OperatorSides tells the side of every operator seen in the headers:
 	// an operator only plays one side.
 	OperatorSides map[string]rec.Side `json:"operatorSides"`
+	// TeamNamedBy tells where each team name comes from.
+	TeamNamedBy map[string]match.NamedBy `json:"teamNamedBy"`
 }
 
 // Settings are the user's choices.
@@ -103,6 +106,8 @@ type Store interface {
 	SetKind(matchID string, k store.Kind) error
 	MyTeam() string
 	SetMyTeam(team string) error
+	TeamNames() []match.Alias
+	SetTeamNames(names []match.Alias) error
 }
 
 // Options configure a Server.
@@ -116,63 +121,41 @@ type Options struct {
 }
 
 // Server answers the API requests. Match details are computed when the
-// server is built; overviews when first asked for, and again once the user
-// relabels a match.
+// server is built and again when a team is renamed; overviews when first
+// asked for, and again once the user relabels a match.
 type Server struct {
-	matches []*match.Match // without duplicates, in order
-	details map[string]*MatchDetail
-	ids     []string // id of each match
-	maps    []string
-	sides   map[string]rec.Side
-	store   Store
-	mux     *http.ServeMux
+	raw   []*match.Match // as assembled, before naming the teams
+	store Store
+	mux   *http.ServeMux
 
-	mu        sync.Mutex
+	mu sync.Mutex
+	v  *view
+}
+
+// view is everything computed from the matches with their teams named.
+type view struct {
+	matches   []*match.Match // without duplicates, in order
+	details   map[string]*MatchDetail
+	ids       []string // id of each match
+	maps      []string
+	knownMap  map[string]bool
+	sides     map[string]rec.Side
+	namedBy   map[string]match.NamedBy
 	overviews map[[2]string]*Overview // by map and kind
 }
 
 // New builds the server for the given matches.
 func New(matches []*match.Match, opt Options) *Server {
-	s := &Server{
-		details:   map[string]*MatchDetail{},
-		maps:      []string{},
-		sides:     map[string]rec.Side{},
-		mux:       http.NewServeMux(),
-		overviews: map[[2]string]*Overview{},
-	}
-	s.store = opt.Store
+	s := &Server{raw: matches, store: opt.Store, mux: http.NewServeMux()}
 	if s.store == nil {
 		s.store = store.Memory()
 	}
-	seenMap := map[string]bool{}
-	for _, m := range matches {
-		d := detail(m)
-		// Two matches can share the id of their first recording only if
-		// the same file is loaded twice; keep the first.
-		if _, dup := s.details[d.ID]; dup {
-			continue
-		}
-		s.details[d.ID] = d
-		s.matches = append(s.matches, m)
-		s.ids = append(s.ids, d.ID)
-		if !seenMap[d.Map] {
-			seenMap[d.Map] = true
-			s.maps = append(s.maps, d.Map)
-		}
-		for _, rf := range m.Rounds {
-			for _, p := range rf.Header.Players {
-				if p.Operator != "" && (p.Side == rec.Attack || p.Side == rec.Defense) {
-					s.sides[p.Operator] = p.Side
-				}
-			}
-		}
-	}
-	sort.Strings(s.maps)
+	s.v = s.build()
 
 	s.mux.HandleFunc("GET /api/overview", func(w http.ResponseWriter, r *http.Request) {
 		q := r.URL.Query()
 		mapName, kind := q.Get("map"), store.Kind(q.Get("kind"))
-		if mapName != "" && !seenMap[mapName] {
+		if mapName != "" && !s.view().knownMap[mapName] {
 			http.Error(w, "unknown map", http.StatusNotFound)
 			return
 		}
@@ -183,15 +166,16 @@ func New(matches []*match.Match, opt Options) *Server {
 		writeJSON(w, s.overview(mapName, kind))
 	})
 	s.mux.HandleFunc("GET /api/matches", func(w http.ResponseWriter, r *http.Request) {
-		list := make([]MatchSummary, len(s.ids))
-		for i, id := range s.ids {
-			list[i] = s.details[id].MatchSummary
+		v := s.view()
+		list := make([]MatchSummary, len(v.ids))
+		for i, id := range v.ids {
+			list[i] = v.details[id].MatchSummary
 			list[i].Kind = s.store.Kind(id)
 		}
 		writeJSON(w, list)
 	})
 	s.mux.HandleFunc("GET /api/matches/{id}", func(w http.ResponseWriter, r *http.Request) {
-		d := s.details[r.PathValue("id")]
+		d := s.view().details[r.PathValue("id")]
 		if d == nil {
 			http.Error(w, "match not found", http.StatusNotFound)
 			return
@@ -202,7 +186,7 @@ func New(matches []*match.Match, opt Options) *Server {
 	})
 	s.mux.HandleFunc("PUT /api/matches/{id}/kind", func(w http.ResponseWriter, r *http.Request) {
 		id := r.PathValue("id")
-		if s.details[id] == nil {
+		if s.view().details[id] == nil {
 			http.Error(w, "match not found", http.StatusNotFound)
 			return
 		}
@@ -222,7 +206,7 @@ func New(matches []*match.Match, opt Options) *Server {
 		}
 		// Statistics filtered by kind are now out of date.
 		s.mu.Lock()
-		clear(s.overviews)
+		clear(s.v.overviews)
 		s.mu.Unlock()
 		w.WriteHeader(http.StatusNoContent)
 	})
@@ -240,6 +224,20 @@ func New(matches []*match.Match, opt Options) *Server {
 		}
 		w.WriteHeader(http.StatusNoContent)
 	})
+	s.mux.HandleFunc("PUT /api/teams/name", func(w http.ResponseWriter, r *http.Request) {
+		var body TeamRename
+		if !readJSON(w, r, &body) {
+			return
+		}
+		name, err := s.renameTeam(body.Team, body.Name)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
+		writeJSON(w, struct {
+			Name string `json:"name"`
+		}{name})
+	})
 	s.mux.HandleFunc("/api/", func(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 	})
@@ -249,31 +247,163 @@ func New(matches []*match.Match, opt Options) *Server {
 	return s
 }
 
+// TeamRename asks to rename a team: Name empty gives it back its automatic
+// name.
+type TeamRename struct {
+	Team string `json:"team"` // current name
+	Name string `json:"name"`
+}
+
+// MaxTeamName is the longest name a team can be given, in characters.
+const MaxTeamName = 40
+
+// renameTeam names the team currently called team, by recording an alias
+// with its players; an empty name drops the aliases that named it. It
+// returns the team's name afterwards.
+func (s *Server) renameTeam(team, name string) (string, error) {
+	name = strings.Join(strings.Fields(name), " ")
+	if len([]rune(name)) > MaxTeamName {
+		return "", errors.New("name too long")
+	}
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	players := map[string]bool{}
+	for _, m := range s.v.matches {
+		for t, n := range m.Teams {
+			if n != team {
+				continue
+			}
+			for i := range m.Rounds {
+				for _, p := range m.Roster(i) {
+					if p.Team == t {
+						players[match.PlayerID(p)] = true
+					}
+				}
+			}
+		}
+	}
+	if len(players) == 0 {
+		return "", errors.New("unknown team")
+	}
+	// Aliases that named this team give way to the new one.
+	var kept []match.Alias
+	for _, a := range s.store.TeamNames() {
+		n := 0
+		for _, id := range a.Players {
+			if players[id] {
+				n++
+			}
+		}
+		if n < match.SameTeam {
+			kept = append(kept, a)
+		}
+	}
+	if name != "" {
+		ids := make([]string, 0, len(players))
+		for id := range players {
+			ids = append(ids, id)
+		}
+		sort.Strings(ids)
+		kept = append(kept, match.Alias{Name: name, Players: ids})
+	}
+	if err := s.store.SetTeamNames(kept); err != nil {
+		return "", err
+	}
+	s.v = s.build()
+	// Find the team again by its players: its name may come back from the
+	// tag when the alias was dropped.
+	after, best := team, 0
+	for _, m := range s.v.matches {
+		for t := range m.Teams {
+			n := 0
+			for _, p := range m.Roster(0) {
+				if p.Team == t && players[match.PlayerID(p)] {
+					n++
+				}
+			}
+			if n > best {
+				after, best = m.Teams[t], n
+			}
+		}
+	}
+	if s.store.MyTeam() == team && after != team {
+		if err := s.store.SetMyTeam(after); err != nil {
+			return "", err
+		}
+	}
+	return after, nil
+}
+
+func (s *Server) view() *view {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	return s.v
+}
+
+// build names the teams and computes the match details.
+func (s *Server) build() *view {
+	named, by := match.NameTeams(s.raw, s.store.TeamNames())
+	v := &view{
+		details:   map[string]*MatchDetail{},
+		maps:      []string{},
+		knownMap:  map[string]bool{},
+		sides:     map[string]rec.Side{},
+		namedBy:   by,
+		overviews: map[[2]string]*Overview{},
+	}
+	for _, m := range named {
+		d := detail(m)
+		// Two matches can share the id of their first recording only if
+		// the same file is loaded twice; keep the first.
+		if _, dup := v.details[d.ID]; dup {
+			continue
+		}
+		v.details[d.ID] = d
+		v.matches = append(v.matches, m)
+		v.ids = append(v.ids, d.ID)
+		if !v.knownMap[d.Map] {
+			v.knownMap[d.Map] = true
+			v.maps = append(v.maps, d.Map)
+		}
+		for _, rf := range m.Rounds {
+			for _, p := range rf.Header.Players {
+				if p.Operator != "" && (p.Side == rec.Attack || p.Side == rec.Defense) {
+					v.sides[p.Operator] = p.Side
+				}
+			}
+		}
+	}
+	sort.Strings(v.maps)
+	return v
+}
+
 // overview returns the statistics over the matches of a map and a kind,
 // empty meaning all.
 func (s *Server) overview(mapName string, kind store.Kind) *Overview {
 	s.mu.Lock()
 	defer s.mu.Unlock()
+	v := s.v
 	key := [2]string{mapName, string(kind)}
-	if o := s.overviews[key]; o != nil {
+	if o := v.overviews[key]; o != nil {
 		return o
 	}
 	var ms []*match.Match
-	for i, m := range s.matches {
-		if (mapName == "" || mapName == mapNameOf(m)) && (kind == "" || kind == s.store.Kind(s.ids[i])) {
+	for i, m := range v.matches {
+		if (mapName == "" || mapName == mapNameOf(m)) && (kind == "" || kind == s.store.Kind(v.ids[i])) {
 			ms = append(ms, m)
 		}
 	}
 	o := &Overview{
 		Map:           mapName,
 		Kind:          kind,
-		Maps:          s.maps,
+		Maps:          v.maps,
 		Matches:       len(ms),
 		Stats:         stats.Compute(stats.Options{}, ms...),
 		TradeWindowMs: stats.DefaultTradeWindowMs,
-		OperatorSides: s.sides,
+		OperatorSides: v.sides,
+		TeamNamedBy:   v.namedBy,
 	}
-	s.overviews[key] = o
+	v.overviews[key] = o
 	return o
 }
 

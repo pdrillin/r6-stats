@@ -109,6 +109,11 @@ CREATE TABLE invitations (
 
 ALTER TABLE space_files ADD COLUMN uploaded_by TEXT REFERENCES users (id) ON DELETE SET NULL;
 `,
+	`
+-- Names the managers gave to teams, with their players (JSON list of
+-- match.Alias): replays recorded by a player call every opponent "ENEMY TEAM".
+ALTER TABLE spaces ADD COLUMN team_names TEXT NOT NULL DEFAULT '[]';
+`,
 }
 
 // openDB opens the database in dir, creating it and bringing its schema up

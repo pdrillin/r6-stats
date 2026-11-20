@@ -268,3 +268,51 @@ func TestSPA(t *testing.T) {
 		t.Errorf("file outside dir served")
 	}
 }
+
+func TestRenameTeam(t *testing.T) {
+	m := testMatch()
+	for i := range m.Rounds {
+		h := &m.Rounds[i].Header
+		h.Teams = [2]rec.Team{{Name: "YOUR TEAM"}, {Name: "ENEMY TEAM"}}
+		h.Players = nil
+		for _, n := range []string{"a1", "a2", "a3"} {
+			h.Players = append(h.Players, rec.Player{Name: n, Team: 0, Side: rec.Attack})
+		}
+		for _, n := range []string{"b1", "b2", "b3"} {
+			h.Players = append(h.Players, rec.Player{Name: n, Team: 1, Side: rec.Defense})
+		}
+	}
+	m.Teams = [2]string{"YOUR TEAM", "ENEMY TEAM"}
+	st := store.Memory()
+	st.SetMyTeam("YOUR TEAM · a1")
+	s := New([]*match.Match{m}, Options{Store: st})
+
+	var list []MatchSummary
+	get(t, s, "/api/matches", &list)
+	if list[0].Teams != [2]string{"YOUR TEAM · a1", "ENEMY TEAM · b1"} {
+		t.Fatalf("automatic names: %v", list[0].Teams)
+	}
+	if code := send(t, s, "PUT", "/api/teams/name", "application/json", `{"team":"YOUR TEAM · a1","name":"  Nous  "}`); code != 200 {
+		t.Fatalf("rename: %d", code)
+	}
+	get(t, s, "/api/matches", &list)
+	if list[0].Teams[0] != "Nous" || st.MyTeam() != "Nous" {
+		t.Errorf("after rename: %v, my team %q", list[0].Teams, st.MyTeam())
+	}
+	var o Overview
+	get(t, s, "/api/overview", &o)
+	if o.TeamNamedBy["Nous"] != match.ByManager || o.Stats.Teams[0].Name != "Nous" {
+		t.Errorf("overview: %v", o.TeamNamedBy)
+	}
+	// An empty name gives the automatic one back.
+	if code := send(t, s, "PUT", "/api/teams/name", "application/json", `{"team":"Nous","name":""}`); code != 200 {
+		t.Fatalf("reset: %d", code)
+	}
+	get(t, s, "/api/matches", &list)
+	if list[0].Teams[0] != "YOUR TEAM · a1" || st.MyTeam() != "YOUR TEAM · a1" || len(st.TeamNames()) != 0 {
+		t.Errorf("after reset: %v, my team %q, names %v", list[0].Teams, st.MyTeam(), st.TeamNames())
+	}
+	if code := send(t, s, "PUT", "/api/teams/name", "application/json", `{"team":"nobody","name":"x"}`); code != 400 {
+		t.Errorf("unknown team: %d", code)
+	}
+}
