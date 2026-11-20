@@ -3,9 +3,11 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"flag"
 	"fmt"
+	"io"
 	"io/fs"
 	"log"
 	"net"
@@ -29,6 +31,10 @@ const usage = `usage:
                                        create a space, print its id
   r6server [-data dir] invite <space-id> [manager|player]
                                        print an invitation link to the space
+  r6server [-data dir] delete <space-id>
+                                       delete a space, its matches and invitations
+                                       (asks for its name; raw replays no other
+                                       space holds are deleted too)
   r6server [-data dir] import <space-id> <dir>...
                                        send every .rec file under the folders
   r6server [-data dir] backup <file>   write a consistent copy of the database
@@ -77,6 +83,8 @@ func main() {
 		err = importDirs(s, args[1:])
 	case "invite":
 		err = invite(s, args[1:])
+	case "delete":
+		err = deleteSpace(s, args[1:], os.Stdin)
 	case "backup":
 		if len(args) != 2 {
 			fl.Usage()
@@ -193,8 +201,14 @@ func serve(s *server.Server, args []string) error {
 		defer cancel()
 		done <- srv.Shutdown(ctx)
 	}()
-	log.Printf("listening on %s (%s)", *addr, cfg.BaseURL)
-	if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+	// Bind before announcing the address, so a port already in use is the
+	// only message the user sees.
+	ln, err := net.Listen("tcp", *addr)
+	if err != nil {
+		return err
+	}
+	log.Printf("listening on %s (%s)", ln.Addr(), cfg.BaseURL)
+	if err := srv.Serve(ln); err != http.ErrServerClosed {
 		return err
 	}
 	return <-done
@@ -220,6 +234,42 @@ func spaces(s *server.Server) error {
 	for _, sp := range list {
 		fmt.Printf("%s  %-6s  %4d replays  %s\n", sp.ID, sp.Kind, sp.Files, sp.Name)
 	}
+	return nil
+}
+
+// deleteSpace deletes a space once its name is typed back, as the web
+// interface asks: an id copied from the wrong line costs a whole team its
+// history.
+func deleteSpace(s *server.Server, args []string, in io.Reader) error {
+	if len(args) != 1 {
+		fmt.Fprint(os.Stderr, usage)
+		os.Exit(2)
+	}
+	list, err := s.Spaces()
+	if err != nil {
+		return err
+	}
+	var sp *server.Space
+	for i := range list {
+		if list[i].ID == args[0] {
+			sp = &list[i]
+		}
+	}
+	if sp == nil {
+		return fmt.Errorf("no space %q", args[0])
+	}
+	fmt.Fprintf(os.Stderr, "Space %q (%s, %d replays) will be deleted for all its members.\nType its name to confirm: ", sp.Name, sp.Kind, sp.Files)
+	line, err := bufio.NewReader(in).ReadString('\n')
+	if err != nil && err != io.EOF {
+		return err
+	}
+	if strings.TrimSpace(line) != sp.Name {
+		return fmt.Errorf("name does not match, nothing deleted")
+	}
+	if err := s.DeleteSpace(sp.ID); err != nil {
+		return err
+	}
+	fmt.Fprintf(os.Stderr, "deleted %s\n", sp.Name)
 	return nil
 }
 

@@ -1013,7 +1013,20 @@ main.narrow {
   display: grid;
   gap: 0.5rem;
 }
+.space-item {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+.space-item .button {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.75rem;
+}
 .space-card {
+  flex: 1;
+  min-width: 0;
   display: grid;
   gap: 0.2rem;
   padding: 0.85rem 1rem;

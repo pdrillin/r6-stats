@@ -97,9 +97,10 @@ Chaque replay n'est décodé qu'une fois : le résultat est gardé dans le dossi
 go run ./cmd/r6server create "Ma team" team   # affiche l'identifiant de l'espace
 go run ./cmd/r6server import <id> Replays     # envoie les replays d'un dossier
 go run ./cmd/r6server serve                   # API sur http://127.0.0.1:8642
+go run ./cmd/r6server delete <id>             # supprime un espace (demande son nom)
 ```
 
-On s'y connecte avec Discord. Chaque espace a ses responsables (capitaine, coach), qui invitent par lien, et ses joueurs. Un espace n'est visible que de ses membres.
+On s'y connecte avec Discord. Chaque espace a ses responsables (capitaine, coach), qui invitent par lien, et ses joueurs. Un espace n'est visible que de ses membres. Un responsable peut supprimer l'espace (bouton « Supprimer » dans la liste des espaces, ou en bas de la page Membres) : ses matchs et invitations partent avec lui.
 
 Pour activer la connexion Discord :
 

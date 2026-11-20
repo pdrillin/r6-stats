@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useApi, useSend } from "../api";
 import { Loading } from "../components/Loading";
 import { date } from "../format";
@@ -29,17 +29,28 @@ export function MembersPage() {
       </p>
       <Loading state={members}>{(list) => <MemberList list={list} me={me} canEdit={canEdit} />}</Loading>
       {canEdit && <Invitations />}
-      {canEdit && <DeleteSpace />}
+      {canEdit && <DeleteSpace ready={members.data !== undefined} />}
     </>
   );
 }
 
-/** Deletes the whole space, for managers: typing its name confirms. */
-function DeleteSpace() {
+/** The Members page's anchor for the deletion form; the space list links to it. */
+export const DELETE_ANCHOR = "supprimer";
+
+/**
+ * Deletes the whole space, for managers: typing its name confirms. Reached
+ * through DELETE_ANCHOR, it takes the focus once the members above it are
+ * shown, so the page no longer moves under the reader.
+ */
+function DeleteSpace({ ready }: { ready: boolean }) {
   const { space } = useWhere();
   const send = useSend();
   const [typed, setTyped] = useState("");
   const [error, setError] = useState<string>();
+  const input = useRef<HTMLInputElement>(null);
+  useEffect(() => {
+    if (ready && window.location.hash === "#" + DELETE_ANCHOR) input.current?.focus();
+  }, [ready]);
   if (!space) return null;
   const remove = async () => {
     try {
@@ -50,14 +61,14 @@ function DeleteSpace() {
     }
   };
   return (
-    <section className="danger-zone">
+    <section className="danger-zone" id={DELETE_ANCHOR}>
       <h2>Supprimer l'espace</h2>
       <p className="muted">
         Supprime l'espace pour tous ses membres, avec ses matchs, ses statistiques et ses invitations. C'est définitif.
         Pour confirmer, écris son nom : <b>{space.name}</b>
       </p>
       <div className="filters">
-        <input value={typed} onChange={(e) => setTyped(e.target.value)} aria-label="Nom de l'espace" />
+        <input ref={input} value={typed} onChange={(e) => setTyped(e.target.value)} aria-label="Nom de l'espace" />
         <button className="button danger" disabled={typed !== space.name} onClick={remove}>
           Supprimer définitivement
         </button>

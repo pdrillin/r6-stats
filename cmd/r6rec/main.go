@@ -7,6 +7,7 @@ import (
 	"flag"
 	"fmt"
 	"io/fs"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -599,6 +600,12 @@ func serve(args []string) error {
 	if err != nil {
 		return err
 	}
-	fmt.Fprintf(os.Stderr, "%d matches loaded, user data in %s, listening on http://%s\n", len(ms), path, *addr)
-	return http.ListenAndServe(*addr, api.New(ms, api.Options{Web: *web, Store: st}))
+	// Bind before announcing the address, so a port already in use is the
+	// only message the user sees.
+	ln, err := net.Listen("tcp", *addr)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(os.Stderr, "%d matches loaded, user data in %s, listening on http://%s\n", len(ms), path, ln.Addr())
+	return http.Serve(ln, api.New(ms, api.Options{Web: *web, Store: st}))
 }

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from "react";
 import { useApi, useSend } from "../api";
 import { Loading } from "../components/Loading";
+import { DELETE_ANCHOR } from "./MembersPage";
 import { roleLabels, signIn, signOut, spacePath, type Space, type User } from "../space";
 
 type Me = User & { canCreate: boolean };
@@ -62,7 +63,7 @@ function Spaces({ me }: { me: Me }) {
             )}
             <ul className="space-list">
               {list.map((s) => (
-                <li key={s.id}>
+                <li key={s.id} className="space-item">
                   <a href={spacePath(s.id)} className="space-card">
                     <b>{s.name}</b>
                     <span className="muted">
@@ -70,6 +71,16 @@ function Spaces({ me }: { me: Me }) {
                       {s.files > 1 ? "s" : ""}
                     </span>
                   </a>
+                  {/* Deleting asks for the space's name, on its Members page. */}
+                  {s.role === "manager" && (
+                    <a
+                      href={spacePath(s.id, "members#" + DELETE_ANCHOR)}
+                      className="button danger small"
+                      aria-label={`Supprimer l'espace ${s.name}`}
+                    >
+                      Supprimer
+                    </a>
+                  )}
                 </li>
               ))}
             </ul>
