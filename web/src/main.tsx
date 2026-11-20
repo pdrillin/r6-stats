@@ -13,6 +13,9 @@ import "@fontsource/barlow-condensed/latin-600.css";
 import "@fontsource/barlow-condensed/latin-700.css";
 import "@fontsource/barlow-condensed/latin-800.css";
 import "./style.css";
+import { initTheme } from "./theme";
+
+initTheme();
 
 // Inside a space (/s/<id>/…) the statistics pages run with the space's
 // address as basename: their links and routes stay the same whether they

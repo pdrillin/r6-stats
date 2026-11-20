@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type ReactNode } from "react";
 import { Link, NavLink, useLocation } from "react-router-dom";
 import { roleLabels, signOut, useWhere } from "../space";
 import { filterSearch } from "./MapFilter";
+import { ThemePicker } from "./ThemePicker";
 
 /**
  * The frame of every statistics page: a side menu grouped by purpose on wide
@@ -84,7 +85,13 @@ export function Shell({ children }: { children: ReactNode }) {
             </Group>
           )}
         </nav>
-        {server && <AccountBlock />}
+        {server ? (
+          <AccountBlock />
+        ) : (
+          <div className="account-block">
+            <ThemePicker />
+          </div>
+        )}
       </aside>
       {open && <div className="scrim" onClick={() => setOpen(false)} aria-hidden="true" />}
 
@@ -131,6 +138,7 @@ function AccountBlock() {
           Confidentialité
         </a>
       </div>
+      <ThemePicker />
     </div>
   );
 }

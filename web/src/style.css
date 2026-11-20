@@ -41,27 +41,26 @@
   line-height: 1.45;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    --bg: #f2f2f5;
-    --panel: #ffffff;
-    --panel-2: #ebebf0;
-    --border: #dcdce3;
-    --border-strong: #9a9aa6;
-    --text: #121216;
-    --muted: #5b5b66;
-    --accent: #ffc21a;
-    --accent-text: #8a5d00;
-    --pos: #1a7f37;
-    --neg: #cf222e;
-    --blue: #2a78d6;
-    --orange: #eb6834;
-    --red: #e34948;
-    --grid: #e1e0e6;
-    --axis: #c3c2cb;
-    --bar: #2a2a33;
-    color-scheme: light;
-  }
+/* Light theme: set by theme.ts, from the system setting or the reader's choice. */
+:root[data-theme="light"] {
+  --bg: #f2f2f5;
+  --panel: #ffffff;
+  --panel-2: #ebebf0;
+  --border: #dcdce3;
+  --border-strong: #9a9aa6;
+  --text: #121216;
+  --muted: #5b5b66;
+  --accent: #ffc21a;
+  --accent-text: #8a5d00;
+  --pos: #1a7f37;
+  --neg: #cf222e;
+  --blue: #2a78d6;
+  --orange: #eb6834;
+  --red: #e34948;
+  --grid: #e1e0e6;
+  --axis: #c3c2cb;
+  --bar: #2a2a33;
+  color-scheme: light;
 }
 
 * {
@@ -1171,6 +1170,11 @@ select:focus-visible,
   margin-top: 2.5rem;
 }
 .site-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
   max-width: 1400px;
   margin: 2rem auto 0;
   padding: 1rem 1.5rem 2rem;
@@ -1301,6 +1305,40 @@ select:focus-visible,
   display: grid;
   gap: 0.35rem;
   font-size: 0.85rem;
+}
+.theme-picker {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  width: fit-content;
+}
+.theme-picker button {
+  font: inherit;
+  font-family: var(--font-display);
+  font-weight: 700;
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  background: none;
+  border: 0;
+  padding: 0.3rem 0.6rem;
+  min-height: 2rem;
+  cursor: pointer;
+}
+.theme-picker button + button {
+  border-left: 1px solid var(--border);
+}
+.theme-picker button:hover {
+  color: var(--text);
+}
+.theme-picker button.active {
+  background: var(--accent);
+  color: var(--on-accent);
+}
+.theme-picker button:focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 2px;
 }
 .account-links {
   display: flex;

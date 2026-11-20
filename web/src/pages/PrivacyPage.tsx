@@ -81,7 +81,8 @@ export function PrivacyPage() {
       </div>
       <p>
         Il n'y a ni publicité, ni mesure d'audience, ni cookie de suivi : les seuls cookies servent à la connexion, ils
-        ne demandent donc pas de consentement.
+        ne demandent donc pas de consentement. Le thème choisi (clair ou sombre) est gardé dans ton navigateur
+        seulement, il n'est jamais envoyé au serveur.
       </p>
 
       <h2>Sur quelle base</h2>
