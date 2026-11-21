@@ -24,7 +24,7 @@ export function Root() {
   if (mode === "probing") return null;
   if (mode === "local") return <App />;
   return (
-    <>
+    <div className="page-frame">
       <header className="topbar">
         <a href="/" className="brand">
           Stratdata
@@ -36,7 +36,7 @@ export function Root() {
         <Route path="*" element={<LobbyPage />} />
       </Routes>
       <Footer />
-    </>
+    </div>
   );
 }
 
